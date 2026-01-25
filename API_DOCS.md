@@ -110,12 +110,11 @@
 ## 3. 模型配置管理 (Model Configs)
 
 ### 3.1 创建模型配置
-- **URL**: `/api/model-configs/`
+- **URL**: `/api/projects/{project_id}/models`
 - **Method**: `POST`
 - **Request Body**:
   ```json
   {
-    "project_id": "uuid",
     "name": "GPT-4 Test Config",
     "provider": "openai",  // openai, azure, huggingface, local
     "endpoint": "https://api.openai.com/v1",
@@ -127,10 +126,22 @@
     }
   }
   ```
+- **Response**: ModelConfigResponse
 
-### 3.2 获取项目下的模型配置
-- **URL**: `/api/model-configs/?project_id={project_id}`
+### 3.2 获取项目下的模型配置列表
+- **URL**: `/api/projects/{project_id}/models`
 - **Method**: `GET`
+- **Response**: List[ModelConfigResponse]
+
+### 3.3 获取单个模型配置详情
+- **URL**: `/api/models/{model_id}`
+- **Method**: `GET`
+- **Response**: ModelConfigResponse
+
+### 3.4 删除模型配置
+- **URL**: `/api/models/{model_id}`
+- **Method**: `DELETE`
+- **Response**: 204 No Content
 
 ---
 
