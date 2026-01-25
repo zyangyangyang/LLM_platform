@@ -6,7 +6,27 @@ from app.services.dataset_service import DatasetService
 
 router = APIRouter()
 
-@router.post("/", response_model=DatasetResponse)
+@router.get("/datasets/presets", response_model=List[Dict[str, Any]])
+def list_dataset_presets(
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    获取平台预置数据集列表
+    """
+    return DatasetService.list_presets()
+
+@router.post("/projects/{project_id}/datasets/from-preset", response_model=DatasetResponse)
+def create_dataset_from_preset(
+    project_id: str,
+    preset_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    从预置数据集创建
+    """
+    return DatasetService.create_from_preset(project_id, preset_id, current_user["id"])
+
+@router.post("/datasets/", response_model=DatasetResponse)
 def create_dataset(
     dataset_in: DatasetCreate,
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -16,7 +36,7 @@ def create_dataset(
     """
     return DatasetService.create_dataset(dataset_in, current_user["id"])
 
-@router.get("/", response_model=List[DatasetResponse])
+@router.get("/datasets/", response_model=List[DatasetResponse])
 def list_datasets(
     project_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
@@ -26,7 +46,7 @@ def list_datasets(
     """
     return DatasetService.list_project_datasets(project_id, current_user["id"])
 
-@router.get("/{dataset_id}", response_model=DatasetResponse)
+@router.get("/datasets/{dataset_id}", response_model=DatasetResponse)
 def get_dataset(
     dataset_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)

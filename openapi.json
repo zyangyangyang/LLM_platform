@@ -636,6 +636,95 @@
         }
       }
     },
+    "/api/datasets/presets": {
+      "get": {
+        "tags": [
+          "datasets"
+        ],
+        "summary": "List Dataset Presets",
+        "description": "获取平台预置数据集列表",
+        "operationId": "list_dataset_presets_api_datasets_presets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Dataset Presets Api Datasets Presets Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/projects/{project_id}/datasets/from-preset": {
+      "post": {
+        "tags": [
+          "datasets"
+        ],
+        "summary": "Create Dataset From Preset",
+        "description": "从预置数据集创建",
+        "operationId": "create_dataset_from_preset_api_projects__project_id__datasets_from_preset_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "preset_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Preset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/datasets/": {
       "post": {
         "tags": [

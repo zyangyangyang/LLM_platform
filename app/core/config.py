@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # 格式: [{"id": "gpt-4", "name": "GPT-4 (Platform)", "provider": "openai", "endpoint": "...", "auth_secret_ref": "env_var_name"}]
     model_presets_json: str = "[{\"id\":\"Qwen-plus\",\"name\":\"Qwen-plus\",\"provider\":\"openai\",\"endpoint\":\"https://dashscope.aliyuncs.com/compatible-mode/v1\",\"auth_type\":\"bearer\",\"auth_secret_ref\":\"sk-f047c83aef464c6582b3226de15889be\",\"params_json\":{\"temperature\":0.2,\"max_tokens\":512}}]"
     # 可写入多个模型配置，每个配置包含模型ID、名称、供应商、API Endpoint、认证类型和认证密钥引用
+
+    # Dataset Presets 预置数据集配置 (JSON 字符串格式)
+    # 格式: [{"id": "safety-v1", "name": "Safety Benchmark v1", "description": "...", "source_type": "file_upload", "storage_uri": "..."}]
+    dataset_presets_json: str = "[{\"id\":\"safety-v1\",\"name\":\"Safety Benchmark v1\",\"description\":\"Official safety evaluation dataset\",\"source_type\":\"file_upload\",\"storage_uri\":\"/data/presets/safety_v1.jsonl\",\"schema_json\":{}}]"
+
     # 配置 Pydantic 加载环境变量的行为：前缀为 SAFETY_，读取 .env 文件
     model_config = SettingsConfigDict(env_prefix="SAFETY_", env_file=".env", extra="ignore")
 
