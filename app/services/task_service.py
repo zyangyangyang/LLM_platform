@@ -54,7 +54,7 @@ class TaskService:
         return EvalTaskResponse(**task)
 
     @staticmethod
-    def run_task(task_id: str, user_id: str) -> EvalTaskRunResponse:
+    async def run_task(task_id: str, user_id: str) -> EvalTaskRunResponse:
         """
         触发任务执行
         """
@@ -63,17 +63,12 @@ class TaskService:
             raise HTTPException(status_code=404, detail="Task not found")
         TaskService._check_project_access(task['project_id'], user_id)
 
-        # Create a new run record
         run_id = TaskRepository.create_run(task_id)
         
-        # Update task status to running
         TaskRepository.update_status(task_id, 'running', started_at=datetime.now())
 
-        # Launch background execution
-        # In production, use Celery or a task queue
         asyncio.create_task(TaskService._execute_run_logic(task_id, run_id))
 
-        # Return the run info immediately
         runs = TaskRepository.get_runs(task_id)
         current_run = next((r for r in runs if r['id'] == run_id), None)
         return EvalTaskRunResponse(**current_run)

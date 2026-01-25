@@ -38,7 +38,7 @@ def get_task(
     return TaskService.get_task(task_id, current_user["id"])
 
 @router.post("/{task_id}/run", response_model=EvalTaskRunResponse)
-def run_task(
+async def run_task(
     task_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -46,4 +46,4 @@ def run_task(
     执行评测任务
     触发后台异步执行
     """
-    return TaskService.run_task(task_id, current_user["id"])
+    return await TaskService.run_task(task_id, current_user["id"])
