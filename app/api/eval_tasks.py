@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, status
 from app.api.auth import get_current_user
-from app.schemas.task import EvalTaskCreate, EvalTaskResponse, EvalTaskRunResponse
+from app.schemas.task import EvalTaskCreate, EvalTaskResponse, EvalTaskRunResponse, EvalSampleResultsResponse, EvalMetricItem
 from app.services.task_service import TaskService
 
 router = APIRouter()
@@ -47,3 +47,19 @@ async def run_task(
     触发后台异步执行
     """
     return await TaskService.run_task(task_id, current_user["id"])
+
+@router.get("/{task_id}/samples", response_model=EvalSampleResultsResponse)
+def get_task_samples(
+    task_id: str,
+    page: int = 1,
+    size: int = 50,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    return TaskService.get_task_samples(task_id, current_user["id"], page, size)
+
+@router.get("/{task_id}/metrics", response_model=List[EvalMetricItem])
+def get_task_metrics(
+    task_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    return TaskService.get_task_metrics(task_id, current_user["id"])

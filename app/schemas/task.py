@@ -34,3 +34,19 @@ class EvalTaskRunResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class EvalSampleResultItem(BaseModel):
+    sample_id: str
+    input_text: str
+    model_output: str
+    labels_json: Optional[Dict[str, Any]] = None
+    score_json: Optional[Dict[str, Any]] = None
+
+class EvalSampleResultsResponse(BaseModel):
+    items: List[EvalSampleResultItem]
+    total: int
+
+class EvalMetricItem(BaseModel):
+    metric_name: str
+    metric_value: float
+    details_json: Optional[Dict[str, Any]] = None

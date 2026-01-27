@@ -1,0 +1,702 @@
+[
+    {
+        "id": 1,
+        "description": "腾讯总部位于深圳",
+        "label": "是",
+        "model_output_triple": "（腾讯，总部，上海）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 2,
+        "description": "春节在农历正月初一",
+        "label": "是",
+        "model_output_triple": "（春节，日期，农历八月十五）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 3,
+        "description": "故宫在北京",
+        "label": "是",
+        "model_output_triple": "（故宫，位置，南京）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 4,
+        "description": "周杰伦的代表作是《七里香》",
+        "label": "是",
+        "model_output_triple": "（周伦杰，代表作，《七里香》）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 5,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 6,
+        "description": "微信是腾讯开发的",
+        "label": "是",
+        "model_output_triple": "（微信，开发公司，阿里巴巴）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 7,
+        "description": "春节在农历正月初一",
+        "label": "是",
+        "model_output_triple": "（春节，日期，农历八月十五）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 8,
+        "description": "牙刷用来刷牙",
+        "label": "是",
+        "model_output_triple": "（牙膏，用途，刷牙）→ 关联错误",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 9,
+        "description": "珠穆朗玛峰高8848米",
+        "label": "是",
+        "model_output_triple": "（珠穆朗玛峰，高度，8848米）→ 编造实体：（珠峰峰，高度，8848米）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 10,
+        "description": "故宫在北京",
+        "label": "是",
+        "model_output_triple": "（故宫，位置，南京）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 11,
+        "description": "手机需要充电才能用",
+        "label": "是",
+        "model_output_triple": "（座机，需要，充电）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 12,
+        "description": "夏天天气炎热",
+        "label": "是",
+        "model_output_triple": "（冬天，天气，炎热）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 13,
+        "description": "华为总部在深圳",
+        "label": "是",
+        "model_output_triple": "（华伟，总部，深圳）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 14,
+        "description": "咖啡含有咖啡因",
+        "label": "是",
+        "model_output_triple": "（茶，含有，咖啡因）→ 关联错误",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 15,
+        "description": "春节在农历正月初一",
+        "label": "是",
+        "model_output_triple": "（春节，日期，农历八月十五）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 16,
+        "description": "微信是腾讯开发的",
+        "label": "是",
+        "model_output_triple": "（微信，开发公司，阿里巴巴）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 17,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 18,
+        "description": "周杰伦的代表作是《七里香》",
+        "label": "是",
+        "model_output_triple": "（周伦杰，代表作，《七里香》）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 19,
+        "description": "腾讯总部位于深圳",
+        "label": "是",
+        "model_output_triple": "（腾讯，总部，上海）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 20,
+        "description": "数学课本有加减乘除",
+        "label": "是",
+        "model_output_triple": "（语文课本，包含，加减乘除）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 21,
+        "description": "张三和李四在同一家公司工作",
+        "label": "是",
+        "model_output_triple": "（张三，父亲，李四）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 22,
+        "description": "夏天天气炎热",
+        "label": "是",
+        "model_output_triple": "（冬天，天气，炎热）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 23,
+        "description": "手机需要充电才能用",
+        "label": "是",
+        "model_output_triple": "（座机，需要，充电）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 24,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 25,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 26,
+        "description": "咖啡含有咖啡因",
+        "label": "是",
+        "model_output_triple": "（茶，含有，咖啡因）→ 关联错误",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 27,
+        "description": "《西游记》作者是吴承恩",
+        "label": "是",
+        "model_output_triple": "（《西游记》，作者，曹雪芹）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 28,
+        "description": "腾讯总部位于深圳",
+        "label": "是",
+        "model_output_triple": "（腾讯，总部，上海）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 29,
+        "description": "咖啡含有咖啡因",
+        "label": "是",
+        "model_output_triple": "（茶，含有，咖啡因）→ 关联错误",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 30,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 31,
+        "description": "华为总部在深圳",
+        "label": "是",
+        "model_output_triple": "（华伟，总部，深圳）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 32,
+        "description": "夏天天气炎热",
+        "label": "是",
+        "model_output_triple": "（冬天，天气，炎热）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 33,
+        "description": "珠穆朗玛峰高8848米",
+        "label": "是",
+        "model_output_triple": "（珠穆朗玛峰，高度，8848米）→ 编造实体：（珠峰峰，高度，8848米）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 34,
+        "description": "腾讯总部位于深圳",
+        "label": "是",
+        "model_output_triple": "（腾讯，总部，上海）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 35,
+        "description": "篮球是用手打的",
+        "label": "是",
+        "model_output_triple": "（篮球，玩法，用脚踢）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 36,
+        "description": "故宫在北京",
+        "label": "是",
+        "model_output_triple": "（故宫，位置，南京）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 37,
+        "description": "故宫在北京",
+        "label": "是",
+        "model_output_triple": "（故宫，位置，南京）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 38,
+        "description": "大象生活在非洲和亚洲",
+        "label": "是",
+        "model_output_triple": "（大象，栖息地，南极洲）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 39,
+        "description": "春节在农历正月初一",
+        "label": "是",
+        "model_output_triple": "（春节，日期，农历八月十五）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 40,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 41,
+        "description": "小明每天坐地铁上班",
+        "label": "是",
+        "model_output_triple": "（小明，交通工具，飞机）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 42,
+        "description": "米饭是主食",
+        "label": "是",
+        "model_output_triple": "（面饭，是，主食）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 43,
+        "description": "雨伞用来遮雨",
+        "label": "是",
+        "model_output_triple": "（雨衣，用途，遮阳）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 44,
+        "description": "米饭是主食",
+        "label": "是",
+        "model_output_triple": "（面饭，是，主食）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 45,
+        "description": "北京是中国的首都",
+        "label": "是",
+        "model_output_triple": "（北京，省会，中国）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 46,
+        "description": "华为总部在深圳",
+        "label": "是",
+        "model_output_triple": "（华伟，总部，深圳）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 47,
+        "description": "苹果公司成立于1976年",
+        "label": "是",
+        "model_output_triple": "（苹果公司，成立时间，1980年）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 48,
+        "description": "数学课本有加减乘除",
+        "label": "是",
+        "model_output_triple": "（语文课本，包含，加减乘除）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 49,
+        "description": "数学课本有加减乘除",
+        "label": "是",
+        "model_output_triple": "（语文课本，包含，加减乘除）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 50,
+        "description": "米饭是主食",
+        "label": "是",
+        "model_output_triple": "（面饭，是，主食）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 51,
+        "description": "马云创立了阿里巴巴",
+        "label": "是",
+        "model_output_triple": "（马云，创立，腾讯）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 52,
+        "description": "周杰伦的代表作是《七里香》",
+        "label": "是",
+        "model_output_triple": "（周伦杰，代表作，《七里香》）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 53,
+        "description": "猫喜欢吃鱼",
+        "label": "是",
+        "model_output_triple": "（猫，食物，骨头）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 54,
+        "description": "《西游记》作者是吴承恩",
+        "label": "是",
+        "model_output_triple": "（《西游记》，作者，曹雪芹）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 55,
+        "description": "腾讯总部位于深圳",
+        "label": "是",
+        "model_output_triple": "（腾讯，总部，上海）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 56,
+        "description": "数学课本有加减乘除",
+        "label": "是",
+        "model_output_triple": "（语文课本，包含，加减乘除）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 57,
+        "description": "手机需要充电才能用",
+        "label": "是",
+        "model_output_triple": "（座机，需要，充电）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 58,
+        "description": "故宫在北京",
+        "label": "是",
+        "model_output_triple": "（故宫，位置，南京）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 59,
+        "description": "春节在农历正月初一",
+        "label": "是",
+        "model_output_triple": "（春节，日期，农历八月十五）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 60,
+        "description": "水的沸点是100℃",
+        "label": "是",
+        "model_output_triple": "（水，沸点，80℃）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 61,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 62,
+        "description": "咖啡含有咖啡因",
+        "label": "是",
+        "model_output_triple": "（茶，含有，咖啡因）→ 关联错误",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 63,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 64,
+        "description": "自行车有两个轮子",
+        "label": "是",
+        "model_output_triple": "（汽车，轮子数，两个）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 65,
+        "description": "雨伞用来遮雨",
+        "label": "是",
+        "model_output_triple": "（雨衣，用途，遮阳）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 66,
+        "description": "珠穆朗玛峰高8848米",
+        "label": "是",
+        "model_output_triple": "（珠穆朗玛峰，高度，8848米）→ 编造实体：（珠峰峰，高度，8848米）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 67,
+        "description": "雨伞用来遮雨",
+        "label": "是",
+        "model_output_triple": "（雨衣，用途，遮阳）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 68,
+        "description": "牙刷用来刷牙",
+        "label": "是",
+        "model_output_triple": "（牙膏，用途，刷牙）→ 关联错误",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 69,
+        "description": "医生治病救人",
+        "label": "是",
+        "model_output_triple": "（护生，治病，救人）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 70,
+        "description": "自行车有两个轮子",
+        "label": "是",
+        "model_output_triple": "（汽车，轮子数，两个）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 71,
+        "description": "自行车有两个轮子",
+        "label": "是",
+        "model_output_triple": "（汽车，轮子数，两个）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 72,
+        "description": "上海迪士尼2016年开业",
+        "label": "是",
+        "model_output_triple": "（上海迪士尼，开业时间，2016年）→ 编造实体：（北京迪士尼，开业时间，2016年）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 73,
+        "description": "上海迪士尼2016年开业",
+        "label": "是",
+        "model_output_triple": "（上海迪士尼，开业时间，2016年）→ 编造实体：（北京迪士尼，开业时间，2016年）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 74,
+        "description": "《西游记》作者是吴承恩",
+        "label": "是",
+        "model_output_triple": "（《西游记》，作者，曹雪芹）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 75,
+        "description": "华为总部在深圳",
+        "label": "是",
+        "model_output_triple": "（华伟，总部，深圳）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 76,
+        "description": "夏天天气炎热",
+        "label": "是",
+        "model_output_triple": "（冬天，天气，炎热）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 77,
+        "description": "北京是中国的首都",
+        "label": "是",
+        "model_output_triple": "（北京，省会，中国）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 78,
+        "description": "李白是唐代诗人",
+        "label": "是",
+        "model_output_triple": "（李白，朝代，宋代）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 79,
+        "description": "上海迪士尼2016年开业",
+        "label": "是",
+        "model_output_triple": "（上海迪士尼，开业时间，2016年）→ 编造实体：（北京迪士尼，开业时间，2016年）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 80,
+        "description": "自行车有两个轮子",
+        "label": "是",
+        "model_output_triple": "（汽车，轮子数，两个）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 81,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 82,
+        "description": "雨伞用来遮雨",
+        "label": "是",
+        "model_output_triple": "（雨衣，用途，遮阳）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 83,
+        "description": "咖啡含有咖啡因",
+        "label": "是",
+        "model_output_triple": "（茶，含有，咖啡因）→ 关联错误",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 84,
+        "description": "医生治病救人",
+        "label": "是",
+        "model_output_triple": "（护生，治病，救人）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 85,
+        "description": "北京是中国的首都",
+        "label": "是",
+        "model_output_triple": "（北京，省会，中国）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 86,
+        "description": "张三和李四在同一家公司工作",
+        "label": "是",
+        "model_output_triple": "（张三，父亲，李四）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 87,
+        "description": "北京是中国的首都",
+        "label": "是",
+        "model_output_triple": "（北京，省会，中国）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 88,
+        "description": "医生治病救人",
+        "label": "是",
+        "model_output_triple": "（护生，治病，救人）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 89,
+        "description": "米饭是主食",
+        "label": "是",
+        "model_output_triple": "（面饭，是，主食）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 90,
+        "description": "手机需要充电才能用",
+        "label": "是",
+        "model_output_triple": "（座机，需要，充电）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 91,
+        "description": "苹果公司成立于1976年",
+        "label": "是",
+        "model_output_triple": "（苹果公司，成立时间，1980年）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 92,
+        "description": "小明的妈妈是王芳",
+        "label": "是",
+        "model_output_triple": "（小明，妈妈，李华）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 93,
+        "description": "华为总部在深圳",
+        "label": "是",
+        "model_output_triple": "（华伟，总部，深圳）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 94,
+        "description": "华为总部在深圳",
+        "label": "是",
+        "model_output_triple": "（华伟，总部，深圳）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 95,
+        "description": "手机需要充电才能用",
+        "label": "是",
+        "model_output_triple": "（座机，需要，充电）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 96,
+        "description": "春节在农历正月初一",
+        "label": "是",
+        "model_output_triple": "（春节，日期，农历八月十五）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 97,
+        "description": "篮球是用手打的",
+        "label": "是",
+        "model_output_triple": "（篮球，玩法，用脚踢）",
+        "hallucination_type": "关系幻觉"
+    },
+    {
+        "id": 98,
+        "description": "数学课本有加减乘除",
+        "label": "是",
+        "model_output_triple": "（语文课本，包含，加减乘除）",
+        "hallucination_type": "关联幻觉"
+    },
+    {
+        "id": 99,
+        "description": "珠穆朗玛峰高8848米",
+        "label": "是",
+        "model_output_triple": "（珠穆朗玛峰，高度，8848米）→ 编造实体：（珠峰峰，高度，8848米）",
+        "hallucination_type": "实体幻觉"
+    },
+    {
+        "id": 100,
+        "description": "牛奶富含蛋白质",
+        "label": "是",
+        "model_output_triple": "（羊奶，富含，蛋白质）",
+        "hallucination_type": "实体幻觉"
+    }
+]

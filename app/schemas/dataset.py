@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -19,3 +19,14 @@ class DatasetResponse(DatasetBase):
 
     class Config:
         from_attributes = True
+
+
+class DatasetSampleItem(BaseModel):
+    id: Optional[Any] = None
+    prompt: str
+    data: Any
+
+
+class DatasetSamplesResponse(BaseModel):
+    items: List[DatasetSampleItem]
+    total: int

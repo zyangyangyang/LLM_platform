@@ -1,7 +1,7 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, status
 from app.api.auth import get_current_user
-from app.schemas.dataset import DatasetCreate, DatasetResponse
+from app.schemas.dataset import DatasetCreate, DatasetResponse, DatasetSamplesResponse
 from app.services.dataset_service import DatasetService
 
 router = APIRouter()
@@ -55,3 +55,12 @@ def get_dataset(
     获取单个数据集详情
     """
     return DatasetService.get_dataset(dataset_id, current_user["id"])
+
+@router.get("/datasets/{dataset_id}/samples", response_model=DatasetSamplesResponse)
+def get_dataset_samples(
+    dataset_id: str,
+    page: int = 1,
+    size: int = 50,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    return DatasetService.get_dataset_samples(dataset_id, current_user["id"], page, size)

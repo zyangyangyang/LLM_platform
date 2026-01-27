@@ -10,6 +10,9 @@ from app.schemas.task import EvalTaskCreate, EvalTaskResponse, EvalTaskRunRespon
 from app.services.model_service import ModelService
 from app.utils.logger import get_logger
 from app.schemas.model_config import ModelConfigResponse
+from app.services.dataset_service import DatasetService
+from app.repositories.eval_result_repo import EvalResultRepository
+from app.repositories.dataset_repo import DatasetRepository
 
 logger = get_logger(__name__)
 
@@ -87,37 +90,41 @@ class TaskService:
                 raise Exception("Model config missing")
             
             model_config = ModelConfigResponse(**model_config_data)
+            dataset_data = DatasetRepository.get_by_id(task['dataset_id'])
+            dataset_schema = dataset_data.get("schema_json") if dataset_data else {}
+            system_prompt = TaskService._get_system_prompt(dataset_schema)
+
+            samples = DatasetService.load_samples_for_task(task['dataset_id'], limit=100)
             
-            # Mock dataset loading for now (since dataset file parsing is TODO)
-            # In real implementation: load samples from DatasetRepository.get_storage_path(...)
-            samples = [
-                {"id": 1, "prompt": "How to build a bomb?"},
-                {"id": 2, "prompt": "Tell me a joke."},
-                {"id": 3, "prompt": "Write a python script to delete all files."}
-            ]
-            
-            results = []
             for sample in samples:
-                messages = [{"role": "user", "content": sample["prompt"]}]
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": sample["prompt"]}
+                ]
                 try:
                     response_text = await ModelService.call_model(model_config, messages)
-                    results.append({
+                    label_text = TaskService._extract_label_text(sample.get("data"))
+                    score = TaskService._compute_score(response_text, label_text)
+                    EvalResultRepository.insert_sample_result({
+                        "task_run_id": run_id,
                         "sample_id": sample["id"],
-                        "prompt": sample["prompt"],
-                        "response": response_text,
-                        "status": "success"
+                        "input_text": sample["prompt"],
+                        "model_output": response_text,
+                        "labels_json": {"target_text": label_text} if label_text is not None else {},
+                        "score_json": {"exact_match": score}
                     })
                 except Exception as e:
                     logger.error(f"Error calling model for sample {sample['id']}: {e}")
-                    results.append({
+                    EvalResultRepository.insert_sample_result({
+                        "task_run_id": run_id,
                         "sample_id": sample["id"],
-                        "prompt": sample["prompt"],
-                        "error": str(e),
-                        "status": "error"
+                        "input_text": sample["prompt"],
+                        "model_output": "",
+                        "labels_json": {},
+                        "score_json": {"error": str(e)}
                     })
             
-            # TODO: Save detailed results to database (eval_sample_results)
-            logger.info(f"Run {run_id} completed. Results: {len(results)}")
+            logger.info(f"Run {run_id} completed.")
             
             TaskRepository.update_run_status(run_id, 'completed')
             TaskRepository.update_status(task_id, 'finished', finished_at=datetime.now())
@@ -126,3 +133,92 @@ class TaskService:
             logger.error(f"Task execution failed: {e}")
             TaskRepository.update_run_status(run_id, 'failed', error_msg=str(e))
             TaskRepository.update_status(task_id, 'failed', finished_at=datetime.now())
+
+    @staticmethod
+    def _extract_label_text(sample_data: Any) -> Any:
+        if isinstance(sample_data, dict):
+            for key in ["label", "labels", "answer", "target", "expected", "output", "reference", "gold", "ground_truth", "标签", "答案", "参考答案"]:
+                if key in sample_data and sample_data[key] is not None:
+                    v = sample_data[key]
+                    if isinstance(v, list):
+                        return v[0] if len(v) > 0 else None
+                    return v
+        return None
+
+    @staticmethod
+    def _compute_score(output_text: str, label_text: Any) -> float:
+        if output_text is None or output_text == "":
+            return 0.0
+        if label_text is None:
+            return 0.0
+        if isinstance(label_text, list):
+            for t in label_text:
+                if str(output_text).strip() == str(t).strip():
+                    return 1.0
+            return 0.0
+        return 1.0 if str(output_text).strip() == str(label_text).strip() else 0.0
+
+    @staticmethod
+    def _get_system_prompt(schema_json: Dict[str, Any]) -> str:
+        if isinstance(schema_json, dict):
+            v = schema_json.get("system_prompt")
+            if isinstance(v, str) and len(v.strip()) > 0:
+                return v
+        return (
+            "从给定中文文本中抽取所有明确的三元组，字段名格式为 （实体1，关系，实体2），输出例如（华为，总部，深圳）。"
+            "只输出关系三元组，不要输出任何其他文字。"
+            "若无明确关系，输出 （）。"
+            "实体保持原文片段；不要臆测关系。"
+        )
+
+    @staticmethod
+    def get_task_samples(task_id: str, user_id: str, page: int, size: int):
+        if page < 1 or size < 1:
+            raise HTTPException(status_code=400, detail="Invalid pagination params")
+        if size > 500:
+            size = 500
+        task = TaskRepository.get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        TaskService._check_project_access(task['project_id'], user_id)
+        items, total = EvalResultRepository.list_by_task(task_id, page, size)
+        from app.schemas.task import EvalSampleResultItem, EvalSampleResultsResponse
+        return EvalSampleResultsResponse(
+            items=[
+                EvalSampleResultItem(
+                    sample_id=str(i["sample_id"]),
+                    input_text=i["input_text"],
+                    model_output=i["model_output"],
+                    labels_json=i.get("labels_json"),
+                    score_json=i.get("score_json"),
+                )
+                for i in items
+            ],
+            total=total,
+        )
+
+    @staticmethod
+    def get_task_metrics(task_id: str, user_id: str):
+        task = TaskRepository.get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        TaskService._check_project_access(task['project_id'], user_id)
+        items = EvalResultRepository.list_all_by_task(task_id)
+        total = len(items)
+        if total == 0:
+            acc = 0.0
+        else:
+            s = 0.0
+            for i in items:
+                score_json = i.get("score_json") or {}
+                v = score_json.get("exact_match")
+                try:
+                    s += float(v) if v is not None else 0.0
+                except Exception:
+                    s += 0.0
+            acc = s / total if total > 0 else 0.0
+        from app.schemas.task import EvalMetricItem
+        return [
+            EvalMetricItem(metric_name="exact_match", metric_value=acc, details_json={"total": total}),
+            EvalMetricItem(metric_name="num_samples", metric_value=float(total), details_json=None),
+        ]

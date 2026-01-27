@@ -84,3 +84,14 @@ class TaskRepository:
     @staticmethod
     def get_runs(task_id: str) -> List[Dict[str, Any]]:
         return fetch_all("SELECT * FROM eval_task_runs WHERE task_id = %s ORDER BY run_no DESC", (task_id,))
+
+    @staticmethod
+    def mark_running_as_failed(reason: str):
+        execute(
+            "UPDATE eval_task_runs SET status = 'failed', finished_at = %s, error_message = %s WHERE status = 'running'",
+            (datetime.now(), reason)
+        )
+        execute(
+            "UPDATE eval_tasks SET status = 'failed', finished_at = %s WHERE status = 'running'",
+            (datetime.now(),)
+        )
