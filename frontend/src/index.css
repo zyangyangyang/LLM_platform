@@ -1,0 +1,127 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--fontSans);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --shadow-x: var(--shadow-x);
+  --shadow-y: var(--shadow-y);
+  --shadow-blur: var(--shadow-blur);
+  --shadow-spread: var(--shadow-spread);
+  --shadow-color: var(--shadow-color);
+}
+
+:root {
+  --fontSans: "Inter", system-ui, -apple-system, sans-serif;
+  
+  /* Blue & White Theme */
+  --background: rgba(255, 255, 255, 1);
+  --foreground: rgba(15, 23, 42, 1); /* Slate 900 */
+  
+  --card: rgba(255, 255, 255, 1);
+  --card-foreground: rgba(15, 23, 42, 1);
+  
+  --popover: rgba(255, 255, 255, 1);
+  --popover-foreground: rgba(15, 23, 42, 1);
+  
+  /* Primary Blue - Professional Tech Blue */
+  --primary: rgba(37, 99, 235, 1); /* Blue 600 */
+  --primary-foreground: rgba(255, 255, 255, 1);
+  
+  /* Secondary - Very Light Blue for contrast */
+  --secondary: rgba(239, 246, 255, 1); /* Blue 50 */
+  --secondary-foreground: rgba(30, 58, 138, 1); /* Blue 900 */
+  
+  --muted: rgba(241, 245, 249, 1); /* Slate 100 */
+  --muted-foreground: rgba(100, 116, 139, 1); /* Slate 500 */
+  
+  --accent: rgba(248, 250, 252, 1);
+  --accent-foreground: rgba(15, 23, 42, 1);
+  
+  --destructive: rgba(239, 68, 68, 1);
+  --destructive-foreground: rgba(255, 255, 255, 1);
+  
+  --border: rgba(226, 232, 240, 1); /* Slate 200 */
+  --input: rgba(226, 232, 240, 1);
+  --ring: rgba(37, 99, 235, 0.4);
+  
+  --radius: 0.5rem;
+  
+  --shadow-x: 0px;
+  --shadow-y: 4px;
+  --shadow-blur: 12px;
+  --shadow-spread: -2px;
+  --shadow-color: rgba(37, 99, 235, 0.1);
+  
+  --chart-1: rgba(37, 99, 235, 1);
+  --chart-2: rgba(59, 130, 246, 1);
+  --chart-3: rgba(96, 165, 250, 1);
+  --chart-4: rgba(147, 197, 253, 1);
+  --chart-5: rgba(191, 219, 254, 1);
+}
+
+.dark {
+  --background: rgba(15, 23, 42, 1);
+  --foreground: rgba(248, 250, 252, 1);
+  --card: rgba(30, 41, 59, 1);
+  --card-foreground: rgba(248, 250, 252, 1);
+  --popover: rgba(30, 41, 59, 1);
+  --popover-foreground: rgba(248, 250, 252, 1);
+  --primary: rgba(59, 130, 246, 1);
+  --primary-foreground: rgba(255, 255, 255, 1);
+  --secondary: rgba(30, 41, 59, 1);
+  --secondary-foreground: rgba(248, 250, 252, 1);
+  --muted: rgba(30, 41, 59, 1);
+  --muted-foreground: rgba(148, 163, 184, 1);
+  --accent: rgba(30, 41, 59, 1);
+  --accent-foreground: rgba(248, 250, 252, 1);
+  --destructive: rgba(127, 29, 29, 1);
+  --destructive-foreground: rgba(248, 250, 252, 1);
+  --border: rgba(51, 65, 85, 1);
+  --input: rgba(51, 65, 85, 1);
+  --ring: rgba(59, 130, 246, 1);
+  --shadow-color: rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .shadow-custom {
+    box-shadow: var(--shadow-x) var(--shadow-y) var(--shadow-blur) var(--shadow-spread) var(--shadow-color);
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "routes": [
+    {
+      "path": "/",
+      "src": "src/pages/Home.tsx"
+    },
+    {
+      "path": "/login",
+      "src": "src/pages/Login.tsx"
+    },
+    {
+      "path": "/dashboard",
+      "src": "src/pages/Dashboard.tsx"
+    },
+    {
+      "path": "/assessment",
+      "src": "src/pages/Assessment.tsx"
+    },
+    {
+      "path": "/results",
+      "src": "src/pages/Results.tsx"
+    }
+  ],
+  "components": [
+    {"name": "Navbar", "src": "src/components/Navbar.tsx"},
+    {"name": "Footer", "src": "src/components/Footer.tsx"},
+    {"name": "Hero", "src": "src/components/Hero.tsx"},
+    {"name": "FeatureCard", "src": "src/components/FeatureCard.tsx"},
+    {"name": "StatsSection", "src": "src/components/StatsSection.tsx"}
+  ]
+}
