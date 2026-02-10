@@ -1,0 +1,26 @@
+数据集格式：
+{
+  "metadata": {
+    "dataset_name": "MMBench_Multimodal_Adversarial",//基于mmbench生成的多模态攻击数据集
+    "description": "多模态对抗攻击数据集",//数据集名
+    "total_samples": 1000,//总样本数
+    ...
+  },
+  "samples": [
+    {
+      "original": {//原问题
+        "sample_id": "...",
+        "question": "...",
+        "answer": "...",
+        ...
+      },
+      "adversarial": {//多模态攻击
+        "attack_type": "image/text/multimodal",//攻击类型（图片、文本）
+        "attack_method": "...",
+        "question": "...",
+        "image": "base64_string or null",
+        ...
+      }
+    }
+  ]
+}

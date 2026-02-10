@@ -11,7 +11,7 @@ class ModelConfigBase(BaseModel):
     params_json: Optional[Dict[str, Any]] = None
 
 class ModelConfigCreate(ModelConfigBase):
-    project_id: str
+    user_id: str
 
 class ModelConfigUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -23,7 +23,7 @@ class ModelConfigUpdate(BaseModel):
 
 class ModelConfigResponse(ModelConfigBase):
     id: str
-    project_id: str
+    user_id: str
     created_at: datetime
 
     class Config:

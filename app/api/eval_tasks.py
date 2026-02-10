@@ -1,31 +1,31 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, status
 from app.api.auth import get_current_user
-from app.schemas.task import EvalTaskCreate, EvalTaskResponse, EvalTaskRunResponse, EvalSampleResultsResponse, EvalMetricItem
+from app.schemas.task import EvalTaskBase, EvalTaskCreate, EvalTaskResponse, EvalTaskRunResponse, EvalSampleResultsResponse, EvalMetricItem
 from app.services.task_service import TaskService
 
 router = APIRouter()
 
 @router.post("/", response_model=EvalTaskResponse)
 def create_task(
-    task_in: EvalTaskCreate,
+    task_in: EvalTaskBase,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
     创建评测任务
-    需指定项目、模型和数据集
+    需指定模型和数据集
     """
-    return TaskService.create_task(task_in, current_user["id"])
+    full_task_in = EvalTaskCreate(user_id=current_user["id"], **task_in.model_dump())
+    return TaskService.create_task(full_task_in, current_user["id"])
 
 @router.get("/", response_model=List[EvalTaskResponse])
 def list_tasks(
-    project_id: str,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """
-    获取项目下的评测任务列表
+    获取用户下的评测任务列表
     """
-    return TaskService.list_tasks(project_id, current_user["id"])
+    return TaskService.list_tasks(current_user["id"])
 
 @router.get("/{task_id}", response_model=EvalTaskResponse)
 def get_task(

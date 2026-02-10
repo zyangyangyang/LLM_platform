@@ -56,61 +56,10 @@
 
 ---
 
-## 2. 项目管理 (Projects)
+## 2. 模型配置管理 (Model Configs)
 
-### 2.1 创建项目
-- **URL**: `/api/projects/`
-- **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "name": "Project Name",
-    "description": "Optional description"
-  }
-  ```
-- **Response**: 项目详细信息
-
-### 2.2 获取项目列表
-- **URL**: `/api/projects/`
-- **Method**: `GET`
-- **Response**:
-  ```json
-  [
-    {
-      "id": "uuid",
-      "name": "Project Name",
-      "owner_id": "uuid",
-      "created_at": "..."
-    }
-  ]
-  ```
-
-### 2.3 获取单个项目详情
-- **URL**: `/api/projects/{project_id}`
-- **Method**: `GET`
-
-### 2.4 添加项目成员
-- **URL**: `/api/projects/{project_id}/members`
-- **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "user_id": "target_user_uuid",
-    "role": "member" 
-  }
-  ```
-  *(注: role 可选值: member, admin)*
-
-### 2.5 获取项目成员列表
-- **URL**: `/api/projects/{project_id}/members`
-- **Method**: `GET`
-
----
-
-## 3. 模型配置管理 (Model Configs)
-
-### 3.1 创建模型配置
-- **URL**: `/api/projects/{project_id}/models`
+### 2.1 创建模型配置
+- **URL**: `/api/models`
 - **Method**: `POST`
 - **Request Body**:
   ```json
@@ -128,32 +77,31 @@
   ```
 - **Response**: ModelConfigResponse
 
-### 3.2 获取项目下的模型配置列表
-- **URL**: `/api/projects/{project_id}/models`
+### 2.2 获取用户下的模型配置列表
+- **URL**: `/api/models`
 - **Method**: `GET`
 - **Response**: List[ModelConfigResponse]
 
-### 3.3 获取单个模型配置详情
+### 2.3 获取单个模型配置详情
 - **URL**: `/api/models/{model_id}`
 - **Method**: `GET`
 - **Response**: ModelConfigResponse
 
-### 3.4 删除模型配置
+### 2.4 删除模型配置
 - **URL**: `/api/models/{model_id}`
 - **Method**: `DELETE`
 - **Response**: 204 No Content
 
 ---
 
-## 4. 数据集管理 (Datasets)
+## 3. 数据集管理 (Datasets)
 
-### 4.1 注册数据集
+### 3.1 注册数据集
 - **URL**: `/api/datasets/`
 - **Method**: `POST`
 - **Request Body**:
   ```json
   {
-    "project_id": "uuid",
     "name": "Safety Test Set v1",
     "description": "包含越狱攻击样本",
     "source_type": "file_upload", // file_upload, s3, url
@@ -162,34 +110,46 @@
   }
   ```
 
-### 4.2 获取项目下的数据集
-- **URL**: `/api/datasets/?project_id={project_id}`
+### 3.2 获取用户下的数据集
+- **URL**: `/api/datasets/`
 - **Method**: `GET`
+
+### 3.3 上传数据集文件
+- **URL**: `/api/datasets/upload`
+- **Method**: `POST`
+- **Content-Type**: `multipart/form-data`
+- **Form Fields**:
+  - `file`: `.json` 或 `.jsonl` 文件
+  - `name`: 数据集名称
+  - `description`: 可选
+  - `schema_json`: 可选，字符串形式的 JSON（如 `{"prompt_field":"description"}`）
+- **Response**: DatasetResponse
+- **说明**: 文件保存到服务器 `uploads/datasets/{user_id}/` 目录，自动避免重名覆盖
 
 ---
 
-## 5. 评测任务 (Eval Tasks)
+## 4. 评测任务 (Eval Tasks)
 
-### 5.1 创建评测任务
+### 4.1 创建评测任务
 - **URL**: `/api/eval-tasks/`
 - **Method**: `POST`
 - **Request Body**:
   ```json
   {
-    "project_id": "uuid",
     "name": "Jailbreak Test Run 1",
     "model_config_id": "uuid",
     "dataset_id": "uuid",
+    "task_type": "hallucination", // 可选值: hallucination (默认), multimodal, safety
     "attack_strategy_id": "uuid (optional)",
     "metric_set_id": "uuid (optional)"
   }
   ```
 
-### 5.2 获取任务列表
-- **URL**: `/api/eval-tasks/?project_id={project_id}`
+### 4.2 获取任务列表
+- **URL**: `/api/eval-tasks/`
 - **Method**: `GET`
 
-### 5.3 获取任务详情与状态
+### 4.3 获取任务详情与状态
 - **URL**: `/api/eval-tasks/{task_id}`
 - **Method**: `GET`
 - **Response**:
@@ -204,9 +164,9 @@
 
 ---
 
-## 6. 评测结果 (Eval Results)
+## 5. 评测结果 (Eval Results)
 
-### 6.1 获取任务指标报告
+### 5.1 获取任务指标报告
 - **URL**: `/api/eval-tasks/{task_id}/metrics`
 - **Method**: `GET`
 - **Response**:
@@ -225,7 +185,7 @@
   ]
   ```
 
-### 6.2 获取任务样本详情 (用于可视化)
+### 5.2 获取任务样本详情 (用于可视化)
 - **URL**: `/api/eval-tasks/{task_id}/samples`
 - **Method**: `GET`
 - **Query Params**: `page=1&size=50`

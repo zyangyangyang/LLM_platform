@@ -1,11 +1,10 @@
 import json
 import os
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from urllib.parse import unquote
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, UploadFile
 from app.core.config import get_settings
 from app.repositories.dataset_repo import DatasetRepository
-from app.repositories.project_repo import ProjectRepository
 from app.schemas.dataset import DatasetCreate, DatasetResponse, DatasetSamplesResponse, DatasetSampleItem
 
 class DatasetService:
@@ -23,14 +22,11 @@ class DatasetService:
             return []
 
     @staticmethod
-    def create_from_preset(project_id: str, preset_id: str, user_id: str) -> DatasetResponse:
+    def create_from_preset(preset_id: str, user_id: str) -> DatasetResponse:
         """
         从预置创建数据集
         """
-        # 1. Check access
-        DatasetService._check_project_access(project_id, user_id)
-        
-        # 2. Find preset
+        # 1. Find preset
         settings = get_settings()
         try:
             presets = json.loads(settings.dataset_presets_json)
@@ -40,10 +36,9 @@ class DatasetService:
         except json.JSONDecodeError:
              raise HTTPException(status_code=500, detail="Invalid system configuration")
              
-        # 3. Create dataset
-        # We copy the preset info into a new dataset record linked to the project
+        # 2. Create dataset
         dataset_in = DatasetCreate(
-            project_id=project_id,
+            user_id=user_id,
             name=preset["name"],
             description=preset.get("description"),
             source_type=preset["source_type"],
@@ -56,24 +51,53 @@ class DatasetService:
         return DatasetResponse(**created)
 
     @staticmethod
-    def _check_project_access(project_id: str, user_id: str):
-        project = ProjectRepository.get_by_id(project_id)
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
-        if project['owner_id'] != user_id and not ProjectRepository.is_member(project_id, user_id):
+    def _check_user_access(resource_user_id: str, user_id: str):
+        if resource_user_id != user_id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
     @staticmethod
     def create_dataset(data: DatasetCreate, user_id: str) -> DatasetResponse:
-        DatasetService._check_project_access(data.project_id, user_id)
+        DatasetService._check_user_access(data.user_id, user_id)
         dataset_id = DatasetRepository.create(data.model_dump())
         created = DatasetRepository.get_by_id(dataset_id)
         return DatasetResponse(**created)
 
     @staticmethod
-    def list_project_datasets(project_id: str, user_id: str) -> List[DatasetResponse]:
-        DatasetService._check_project_access(project_id, user_id)
-        datasets = DatasetRepository.list_by_project(project_id)
+    def create_from_upload(
+        file: UploadFile,
+        user_id: str,
+        name: str,
+        description: Optional[str] = None,
+        schema_json_str: Optional[str] = None,
+        prompt_field: Optional[str] = None,   # 提示字段名，用于从样本中提取提示
+        system_prompt: Optional[str] = None   # 系统提示，用于生成完整的提示
+    ) -> DatasetResponse:
+        storage_path = DatasetService._save_uploaded_file(user_id, file)
+        schema_obj: Dict[str, Any] = {}
+        if schema_json_str:
+            try:
+                schema_obj = json.loads(schema_json_str)
+            except Exception:
+                raise HTTPException(status_code=400, detail="Invalid schema_json")
+        if prompt_field:
+            schema_obj["prompt_field"] = prompt_field
+        if system_prompt:
+            schema_obj["system_prompt"] = system_prompt
+        dataset_in = DatasetCreate(
+            user_id=user_id,
+            name=name,
+            description=description,
+            source_type="file_upload",
+            storage_uri=storage_path,
+            schema_json=schema_obj
+        )
+        dataset_id = DatasetRepository.create(dataset_in.model_dump())
+        created = DatasetRepository.get_by_id(dataset_id)
+        return DatasetResponse(**created)
+
+    @staticmethod
+    def list_user_datasets(user_id: str) -> List[DatasetResponse]:
+        datasets = DatasetRepository.list_by_user(user_id)
         return [DatasetResponse(**d) for d in datasets]
 
     @staticmethod
@@ -81,7 +105,7 @@ class DatasetService:
         dataset = DatasetRepository.get_by_id(dataset_id)
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
-        DatasetService._check_project_access(dataset['project_id'], user_id)
+        DatasetService._check_user_access(dataset['user_id'], user_id)
         return DatasetResponse(**dataset)
 
     @staticmethod
@@ -93,7 +117,7 @@ class DatasetService:
         dataset = DatasetRepository.get_by_id(dataset_id)
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
-        DatasetService._check_project_access(dataset['project_id'], user_id)
+        DatasetService._check_user_access(dataset['user_id'], user_id)
         items, total = DatasetService._read_samples(dataset, page, size)
         normalized = DatasetService._normalize_samples(items, dataset.get("schema_json") or {})
         return DatasetSamplesResponse(
@@ -141,6 +165,35 @@ class DatasetService:
         if ext == ".json":
             return DatasetService._read_json_samples(path, start, end)
         raise HTTPException(status_code=400, detail="Unsupported dataset format")
+
+    @staticmethod
+    def _save_uploaded_file(user_id: str, file: UploadFile) -> str:
+        filename = os.path.basename(file.filename or "")
+        if not filename:
+            raise HTTPException(status_code=400, detail="Empty filename")
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in [".json", ".jsonl"]:
+            raise HTTPException(status_code=400, detail="Only .json or .jsonl allowed")
+        base_dir = os.path.join(os.getcwd(), "uploads", "datasets", user_id)
+        os.makedirs(base_dir, exist_ok=True)
+        safe_name = filename
+        target_path = os.path.join(base_dir, safe_name)
+        idx = 1
+        while os.path.exists(target_path):
+            name_no_ext = os.path.splitext(filename)[0]
+            safe_name = f"{name_no_ext}_{idx}{ext}"
+            target_path = os.path.join(base_dir, safe_name)
+            idx += 1
+        try:
+            with open(target_path, "wb") as out:
+                while True:
+                    chunk = file.file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    out.write(chunk)
+        except Exception:
+            raise HTTPException(status_code=500, detail="Failed to save uploaded file")
+        return target_path
 
     @staticmethod
     def _read_json_samples(path: str, start: int, end: int) -> Tuple[List[Any], int]:

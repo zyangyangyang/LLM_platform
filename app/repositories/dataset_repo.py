@@ -11,12 +11,12 @@ class DatasetRepository:
         execute(
             """
             INSERT INTO datasets 
-            (id, project_id, name, description, source_type, storage_uri, schema_json)
+            (id, user_id, name, description, source_type, storage_uri, schema_json)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 dataset_id,
-                data['project_id'],
+                data['user_id'],
                 data['name'],
                 data.get('description'),
                 data['source_type'],
@@ -37,10 +37,10 @@ class DatasetRepository:
         return row
 
     @staticmethod
-    def list_by_project(project_id: str) -> List[Dict[str, Any]]:
+    def list_by_user(user_id: str) -> List[Dict[str, Any]]:
         rows = fetch_all(
-            "SELECT * FROM datasets WHERE project_id = %s ORDER BY created_at DESC",
-            (project_id,)
+            "SELECT * FROM datasets WHERE user_id = %s ORDER BY created_at DESC",
+            (user_id,)
         )
         for row in rows:
             if isinstance(row.get('schema_json'), str):

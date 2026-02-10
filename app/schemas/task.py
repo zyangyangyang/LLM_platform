@@ -8,13 +8,14 @@ class EvalTaskBase(BaseModel):
     dataset_id: str
     attack_strategy_id: Optional[str] = None
     metric_set_id: Optional[str] = None
+    task_type: Optional[str] = "hallucination"
 
 class EvalTaskCreate(EvalTaskBase):
-    project_id: str
+    user_id: str
 
 class EvalTaskResponse(EvalTaskBase):
     id: str
-    project_id: str
+    user_id: str
     status: str
     created_at: datetime
     started_at: Optional[datetime] = None

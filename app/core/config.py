@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Security 安全配置
     secret_key: str = "change_this_to_a_secure_random_key_in_production"  # 用于JWT签名的密钥，生产环境务必更换为强随机字符串
     algorithm: str = "HS256"  # JWT签名算法
-    access_token_expire_minutes: int = 30  # Token过期时间（分钟）
+    access_token_expire_minutes: int = 60  # Token过期时间（分钟）
     
     # Database 数据库配置
     db_host: str = "127.0.0.1"
@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     db_password: str = "123456"
     db_name: str = "safety_platform"
     db_charset: str = "utf8mb4"
+    max_concurrent_runs: int = 2
 
     # Model Presets 预置模型配置 (JSON 字符串格式)
     # 格式: [{"id": "gpt-4", "name": "GPT-4 (Platform)", "provider": "openai", "endpoint": "...", "auth_secret_ref": "env_var_name"}]

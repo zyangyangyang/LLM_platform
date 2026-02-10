@@ -25,8 +25,12 @@ const Login: React.FC = () => {
       setTimeout(() => {
         navigate('/dashboard');
       }, 500);
-    } catch (err: any) {
-      setError(err?.message || '登录失败');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || '登录失败');
+      } else {
+        setError('登录失败');
+      }
       console.error('Login failed', err);
     } finally {
       setIsLoading(false);

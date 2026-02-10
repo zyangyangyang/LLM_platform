@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import Navbar from '../components/Navbar';
 import { Trophy, Shield, AlertTriangle, Lock, Eye, FileText, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,14 +22,8 @@ interface ModelRanking {
 }
 
 const Ranking: React.FC = () => {
-  const [searchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab') || 'overall';
-  const [activeTab, setActiveTab] = useState(tabFromUrl);
-
-  useEffect(() => {
-    const tab = searchParams.get('tab') || 'overall';
-    setActiveTab(tab);
-  }, [searchParams]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = useMemo(() => searchParams.get('tab') || 'overall', [searchParams]);
 
   // 模拟数据
   const overallRankings: ModelRanking[] = [
@@ -269,7 +263,11 @@ const Ranking: React.FC = () => {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setSearchParams({ tab: value })}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-6 h-auto p-1 bg-white border border-border rounded-xl shadow-sm mb-8">
             {categories.map((category) => {
               const Icon = category.icon;

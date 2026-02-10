@@ -16,7 +16,7 @@ class ModelService:
     @staticmethod
     async def call_model(
         config: ModelConfigResponse,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         **kwargs
     ) -> str:
         """
@@ -35,7 +35,7 @@ class ModelService:
         
         logger.info(f"Calling model {config.name} ({provider}) at {config.endpoint}")
 
-        if provider in ["openai", "azure", "deepseek", "vllm"]:
+        if provider in ["openai", "azure", "deepseek", "vllm", "dashscope"]:
             # 处理 OpenAI 兼容接口 (包括 DeepSeek, vLLM 等)
             return await ModelService._call_openai_compatible(config, messages, params)
         elif provider == "huggingface":
@@ -48,7 +48,7 @@ class ModelService:
     @staticmethod
     async def _call_openai_compatible(
         config: ModelConfigResponse,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         params: Dict[str, Any]
     ) -> str:
         """

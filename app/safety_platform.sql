@@ -23,30 +23,9 @@ CREATE TABLE user_roles (
   CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE projects (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  description TEXT,
-  owner_id VARCHAR(36) NOT NULL,
-  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  CONSTRAINT fk_projects_owner FOREIGN KEY (owner_id) REFERENCES users(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE project_members (
-  id VARCHAR(36) NOT NULL PRIMARY KEY,
-  project_id VARCHAR(36) NOT NULL,
-  user_id VARCHAR(36) NOT NULL,
-  role_in_project VARCHAR(50) NOT NULL,
-  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  UNIQUE KEY uk_project_member (project_id, user_id),
-  CONSTRAINT fk_project_members_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-  CONSTRAINT fk_project_members_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE model_configs (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
-  project_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
   name VARCHAR(100) NOT NULL,
   provider VARCHAR(50) NOT NULL,
   endpoint VARCHAR(255) NOT NULL,
@@ -54,19 +33,19 @@ CREATE TABLE model_configs (
   auth_secret_ref VARCHAR(255),
   params_json JSON,
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  CONSTRAINT fk_model_configs_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  CONSTRAINT fk_model_configs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE datasets (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
-  project_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
   name VARCHAR(100) NOT NULL,
   description TEXT,
   source_type VARCHAR(30) NOT NULL,
   storage_uri VARCHAR(255) NOT NULL,
   schema_json JSON,
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  CONSTRAINT fk_datasets_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  CONSTRAINT fk_datasets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE attack_strategies (
@@ -85,7 +64,7 @@ CREATE TABLE metric_sets (
 
 CREATE TABLE eval_tasks (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
-  project_id VARCHAR(36) NOT NULL,
+  user_id VARCHAR(36) NOT NULL,
   name VARCHAR(100) NOT NULL,
   model_config_id VARCHAR(36) NOT NULL,
   dataset_id VARCHAR(36) NOT NULL,
@@ -95,7 +74,7 @@ CREATE TABLE eval_tasks (
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   started_at DATETIME(6),
   finished_at DATETIME(6),
-  CONSTRAINT fk_eval_tasks_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  CONSTRAINT fk_eval_tasks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_eval_tasks_model FOREIGN KEY (model_config_id) REFERENCES model_configs(id),
   CONSTRAINT fk_eval_tasks_dataset FOREIGN KEY (dataset_id) REFERENCES datasets(id),
   CONSTRAINT fk_eval_tasks_attack FOREIGN KEY (attack_strategy_id) REFERENCES attack_strategies(id),
@@ -137,14 +116,12 @@ CREATE TABLE eval_sample_results (
 CREATE TABLE audit_logs (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   user_id VARCHAR(36) NOT NULL,
-  project_id VARCHAR(36),
   action VARCHAR(50) NOT NULL,
   resource_type VARCHAR(50) NOT NULL,
   resource_id VARCHAR(36),
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   meta_json JSON,
-  CONSTRAINT fk_audit_logs_user FOREIGN KEY (user_id) REFERENCES users(id),
-  CONSTRAINT fk_audit_logs_project FOREIGN KEY (project_id) REFERENCES projects(id)
+  CONSTRAINT fk_audit_logs_user FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE task_logs (

@@ -4,7 +4,6 @@ from typing import List, Optional, Dict, Any
 from fastapi import HTTPException, status
 from app.core.config import get_settings
 from app.repositories.model_config_repo import ModelConfigRepository
-from app.repositories.project_repo import ProjectRepository
 from app.schemas.model_config import ModelConfigCreate, ModelConfigResponse
 
 class ModelConfigService:
@@ -14,26 +13,12 @@ class ModelConfigService:
     """
     
     @staticmethod
-    def _check_project_access(project_id: str, user_id: str):
-        """
-        内部辅助方法：检查用户是否有权访问项目
-        """
-        project = ProjectRepository.get_by_id(project_id)
-        if not project:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Project not found"
-            )
-        
-        is_owner = project["owner_id"] == user_id
-        is_member = ProjectRepository.is_member(project_id, user_id)
-        
-        if not (is_owner or is_member):
+    def _check_user_access(resource_user_id: str, user_id: str):
+        if resource_user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this project"
+                detail="Not authorized to access this resource"
             )
-        return project
 
     @staticmethod
     def list_presets() -> List[Dict[str, Any]]:
@@ -57,14 +42,11 @@ class ModelConfigService:
             return []
 
     @staticmethod
-    def create_from_preset(project_id: str, preset_id: str, user_id: str) -> ModelConfigResponse:
+    def create_from_preset(preset_id: str, user_id: str) -> ModelConfigResponse:
         """
         根据预置模型创建用户配置
         """
-        # 1. 检查项目权限
-        ModelConfigService._check_project_access(project_id, user_id)
-
-        # 2. 查找预置模型配置
+        # 1. 查找预置模型配置
         settings = get_settings()
         try:
             presets = json.loads(settings.model_presets_json)
@@ -87,9 +69,9 @@ class ModelConfigService:
                  # 如果环境变量没配，可能导致调用失败
                  pass 
 
-        # 4. 创建配置
+        # 3. 创建配置
         model_in = ModelConfigCreate(
-            project_id=project_id,
+            user_id=user_id,
             name=preset["name"],
             provider=preset["provider"],
             endpoint=preset["endpoint"],
@@ -104,9 +86,9 @@ class ModelConfigService:
     def create_model_config(model_in: ModelConfigCreate, user_id: str) -> ModelConfigResponse:
         """
         创建模型配置
-        先验证项目权限，再写入数据库
+        校验归属用户，再写入数据库
         """
-        ModelConfigService._check_project_access(model_in.project_id, user_id)
+        ModelConfigService._check_user_access(model_in.user_id, user_id)
         
         model_data = model_in.dict()
         model_id = ModelConfigRepository.create(model_data)
@@ -119,20 +101,18 @@ class ModelConfigService:
         return ModelConfigResponse(**created_model)
 
     @staticmethod
-    def list_project_models(project_id: str, user_id: str) -> List[ModelConfigResponse]:
+    def list_user_models(user_id: str) -> List[ModelConfigResponse]:
         """
-        列出指定项目下的所有模型配置
+        列出用户下的所有模型配置
         """
-        ModelConfigService._check_project_access(project_id, user_id)
-        
-        models = ModelConfigRepository.list_by_project(project_id)
+        models = ModelConfigRepository.list_by_user(user_id)
         return [ModelConfigResponse(**m) for m in models]
 
     @staticmethod
     def get_model_config(model_id: str, user_id: str) -> ModelConfigResponse:
         """
         获取单个模型配置详情
-        会自动检查该配置所属项目的访问权限
+        会自动检查该配置所属用户
         """
         model = ModelConfigRepository.get_by_id(model_id)
         if not model:
@@ -140,10 +120,9 @@ class ModelConfigService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Model config not found"
             )
-        
-        # Check access to the project this model belongs to
-        ModelConfigService._check_project_access(model["project_id"], user_id)
-        
+
+        ModelConfigService._check_user_access(model["user_id"], user_id)
+
         return ModelConfigResponse(**model)
 
     @staticmethod
@@ -157,7 +136,7 @@ class ModelConfigService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Model config not found"
             )
-            
-        ModelConfigService._check_project_access(model["project_id"], user_id)
+
+        ModelConfigService._check_user_access(model["user_id"], user_id)
         
         ModelConfigRepository.delete(model_id)

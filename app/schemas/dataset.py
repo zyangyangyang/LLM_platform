@@ -10,11 +10,11 @@ class DatasetBase(BaseModel):
     schema_json: Optional[Dict[str, Any]] = None
 
 class DatasetCreate(DatasetBase):
-    project_id: str
+    user_id: str
 
 class DatasetResponse(DatasetBase):
     id: str
-    project_id: str
+    user_id: str
     created_at: datetime
 
     class Config:

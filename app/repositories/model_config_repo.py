@@ -11,12 +11,12 @@ class ModelConfigRepository:
         execute(
             """
             INSERT INTO model_configs 
-            (id, project_id, name, provider, endpoint, auth_type, auth_secret_ref, params_json)
+            (id, user_id, name, provider, endpoint, auth_type, auth_secret_ref, params_json)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 model_id,
-                model_data['project_id'],
+                model_data['user_id'],
                 model_data['name'],
                 model_data['provider'],
                 model_data['endpoint'],
@@ -38,10 +38,10 @@ class ModelConfigRepository:
         return row
 
     @staticmethod
-    def list_by_project(project_id: str) -> List[Dict[str, Any]]:
+    def list_by_user(user_id: str) -> List[Dict[str, Any]]:
         rows = fetch_all(
-            "SELECT * FROM model_configs WHERE project_id = %s ORDER BY created_at DESC",
-            (project_id,)
+            "SELECT * FROM model_configs WHERE user_id = %s ORDER BY created_at DESC",
+            (user_id,)
         )
         for row in rows:
             if isinstance(row.get('params_json'), str):

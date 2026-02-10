@@ -11,17 +11,18 @@ class TaskRepository:
         execute(
             """
             INSERT INTO eval_tasks 
-            (id, project_id, name, model_config_id, dataset_id, attack_strategy_id, metric_set_id, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending')
+            (id, user_id, name, model_config_id, dataset_id, attack_strategy_id, metric_set_id, task_type, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending')
             """,
             (
                 task_id,
-                data['project_id'],
+                data['user_id'],
                 data['name'],
                 data['model_config_id'],
                 data['dataset_id'],
                 data.get('attack_strategy_id'),
-                data.get('metric_set_id')
+                data.get('metric_set_id'),
+                data.get('task_type', 'hallucination')
             )
         )
         return task_id
@@ -31,10 +32,10 @@ class TaskRepository:
         return fetch_one("SELECT * FROM eval_tasks WHERE id = %s", (task_id,))
 
     @staticmethod
-    def list_tasks(project_id: str) -> List[Dict[str, Any]]:
+    def list_tasks(user_id: str) -> List[Dict[str, Any]]:
         return fetch_all(
-            "SELECT * FROM eval_tasks WHERE project_id = %s ORDER BY created_at DESC",
-            (project_id,)
+            "SELECT * FROM eval_tasks WHERE user_id = %s ORDER BY created_at DESC",
+            (user_id,)
         )
 
     @staticmethod
@@ -51,6 +52,14 @@ class TaskRepository:
             )
         else:
             execute("UPDATE eval_tasks SET status = %s WHERE id = %s", (status, task_id))
+
+    @staticmethod
+    def try_mark_running(task_id: str, started_at: datetime) -> bool:
+        rowcount = execute(
+            "UPDATE eval_tasks SET status = 'running', started_at = %s WHERE id = %s AND status <> 'running'",
+            (started_at, task_id)
+        )
+        return rowcount > 0
 
     @staticmethod
     def create_run(task_id: str) -> str:
