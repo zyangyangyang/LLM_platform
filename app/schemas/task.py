@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Literal
 from pydantic import BaseModel, Field
 from datetime import datetime
 
@@ -8,7 +8,7 @@ class EvalTaskBase(BaseModel):
     dataset_id: str
     attack_strategy_id: Optional[str] = None
     metric_set_id: Optional[str] = None
-    task_type: Optional[str] = "hallucination"
+    task_type: Optional[Literal["hallucination", "prompt_attack", "multimodal", "safety"]] = "hallucination"
 
 class EvalTaskCreate(EvalTaskBase):
     user_id: str

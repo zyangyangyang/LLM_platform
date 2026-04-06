@@ -1,4 +1,5 @@
 import json
+import os
 from typing import List, Dict, Any, Optional
 import httpx
 from openai import AsyncOpenAI
@@ -30,7 +31,7 @@ class ModelService:
         provider = config.provider.lower()
         
         # 合并参数：优先使用运行时参数，其次使用配置中的默认参数
-        params = config.params_json or {}
+        params = dict(config.params_json or {})
         params.update(kwargs)
         
         logger.info(f"Calling model {config.name} ({provider}) at {config.endpoint}")
@@ -54,7 +55,8 @@ class ModelService:
         """
         调用 OpenAI 兼容格式的 API
         """
-        api_key = config.auth_secret_ref or "dummy"
+        api_key_ref = config.auth_secret_ref or "dummy"
+        api_key = os.getenv(api_key_ref, api_key_ref)
         base_url = config.endpoint
         
         # 智能调整 base_url，适配用户可能输入的完整路径
@@ -68,12 +70,14 @@ class ModelService:
         
         try:
             # 优先使用参数中的 model，否则使用配置名称
-            model_name = params.pop("model", config.name)
+            model_name = params.get("model", config.name)
+            request_params = dict(params)
+            request_params.pop("model", None)
             
             response = await client.chat.completions.create(
                 model=model_name,
                 messages=messages,
-                **params
+                **request_params
             )
             return response.choices[0].message.content
         except Exception as e:

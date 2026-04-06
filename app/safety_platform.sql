@@ -70,6 +70,7 @@ CREATE TABLE eval_tasks (
   dataset_id VARCHAR(36) NOT NULL,
   attack_strategy_id VARCHAR(36),
   metric_set_id VARCHAR(36),
+  task_type VARCHAR(50) NOT NULL DEFAULT 'hallucination',
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   started_at DATETIME(6),

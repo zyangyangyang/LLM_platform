@@ -264,7 +264,7 @@ class DatasetService:
             if prompt_field and isinstance(sample, dict) and prompt_field in sample:
                 return sample.get(prompt_field)
         if isinstance(sample, dict):
-            for key in ["prompt", "question", "input", "text", "content", "描述", "问题", "query", "instruction"]:
+            for key in ["prompt", "malicious_prompt", "jailbreak_prompt", "question", "input", "text", "content", "描述", "问题", "query", "instruction"]:
                 if key in sample and sample[key] is not None:
                     return sample[key]
             return None
