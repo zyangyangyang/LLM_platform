@@ -20,3 +20,4 @@ def _startup_cleanup():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+ 

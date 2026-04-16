@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Set
 from uuid import uuid4
 from app.core.database import execute, fetch_all, fetch_one
 
@@ -93,3 +93,11 @@ class EvalResultRepository:
                 except Exception:
                     item["score_json"] = {}
         return items
+
+    @staticmethod
+    def list_sample_ids_by_run(task_run_id: str) -> Set[str]:
+        rows = fetch_all(
+            "SELECT sample_id FROM eval_sample_results WHERE task_run_id = %s",
+            (task_run_id,),
+        )
+        return {str(row["sample_id"]) for row in rows if row.get("sample_id") is not None}

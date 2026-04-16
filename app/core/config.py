@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     model_rate_limit_rps: int = 3
     model_rate_limit_wait_timeout_seconds: int = 10
     model_rate_limit_redis_db: int = 2
+    model_rate_limit_requeue_delay_seconds: int = 3
 
     # Model presets
     model_presets_json: str = (
