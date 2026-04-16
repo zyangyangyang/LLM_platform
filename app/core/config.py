@@ -1,46 +1,82 @@
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """
-    系统全局配置类
-    使用 Pydantic BaseSettings 管理环境变量和默认值
-    """
     app_name: str = "Safety Platform"
     api_prefix: str = "/api"
-    
-    # Security 安全配置
-    secret_key: str = "change_this_to_a_secure_random_key_in_production"  # 用于JWT签名的密钥，生产环境务必更换为强随机字符串
-    algorithm: str = "HS256"  # JWT签名算法
-    access_token_expire_minutes: int = 60  # Token过期时间（分钟）
-    
-    # Database 数据库配置
+
+    # Security
+    secret_key: str = "change_this_to_a_secure_random_key_in_production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+
+    # Database
     db_host: str = "127.0.0.1"
     db_port: int = 3306
     db_user: str = "root"
     db_password: str = "123456"
     db_name: str = "safety_platform"
     db_charset: str = "utf8mb4"
+
+    # Runtime
     max_concurrent_runs: int = 2
+    stale_running_timeout_minutes: int = 60
 
-    # Model Presets 预置模型配置 (JSON 字符串格式)
-    # 格式: [{"id": "gpt-4", "name": "GPT-4 (Platform)", "provider": "openai", "endpoint": "...", "auth_secret_ref": "env_var_name"}]
-    model_presets_json: str = "[{\"id\":\"qwen-plus\",\"name\":\"qwen-plus\",\"provider\":\"openai\",\"endpoint\":\"https://dashscope.aliyuncs.com/compatible-mode/v1\",\"auth_type\":\"bearer\",\"auth_secret_ref\":\"DASHSCOPE_API_KEY\",\"params_json\":{\"temperature\":0.2,\"max_tokens\":512}}]"
-    # 可写入多个模型配置，每个配置包含模型ID、名称、供应商、API Endpoint、认证类型和认证密钥引用
-    semantic_judge_model_json: str = "{\"name\":\"semantic-judge\",\"provider\":\"openai\",\"endpoint\":\"https://dashscope.aliyuncs.com/compatible-mode/v1\",\"auth_type\":\"bearer\",\"auth_secret_ref\":\"DASHSCOPE_API_KEY\",\"params_json\":{\"model\":\"qwen-max\",\"temperature\":0,\"max_tokens\":8}}"
+    # Celery / Redis
+    celery_broker_url: str = "redis://127.0.0.1:6379/0"
+    celery_result_backend: str = "redis://127.0.0.1:6379/1"
+    celery_worker_prefetch_multiplier: int = 1
 
-    # Dataset Presets 预置数据集配置 (JSON 字符串格式)
-    # 格式: [{"id": "safety-v1", "name": "Safety Benchmark v1", "description": "...", "source_type": "file_upload", "storage_uri": "..."}]
-    dataset_presets_json: str = "[{\"id\":\"entity-relation-hallucination-v1\",\"name\":\"实体关系抽取幻觉测评\",\"description\":\"实体关系抽取幻觉评测数据集\",\"source_type\":\"file_upload\",\"storage_uri\":\"d:\\\\LLM_platform\\\\实体关系抽取幻觉测评数据集.json\",\"schema_json\":{\"prompt_field\":\"description\"}},{\"id\":\"prompt-attack-v1\",\"name\":\"提示词攻击测评\",\"description\":\"提示词注入/越狱攻击评测数据集\",\"source_type\":\"file_upload\",\"storage_uri\":\"d:\\\\LLM_platform\\\\prompt_attack_dataset.json\",\"schema_json\":{\"prompt_field\":\"malicious_prompt\"}}]"
+    # Model rate limiting
+    model_rate_limit_enabled: bool = True
+    model_rate_limit_rps: int = 3
+    model_rate_limit_wait_timeout_seconds: int = 10
+    model_rate_limit_redis_db: int = 2
 
-    # 配置 Pydantic 加载环境变量的行为：前缀为 SAFETY_，读取 .env 文件
+    # Model presets
+    model_presets_json: str = (
+        "[{\"id\":\"qwen-plus\",\"name\":\"qwen-plus\",\"provider\":\"openai\","
+        "\"endpoint\":\"https://dashscope.aliyuncs.com/compatible-mode/v1\","
+        "\"auth_type\":\"bearer\",\"auth_secret_ref\":\"DASHSCOPE_API_KEY\","
+        "\"params_json\":{\"temperature\":0.2,\"max_tokens\":512}}]"
+    )
+
+    semantic_judge_model_json: str = (
+        "{\"name\":\"semantic-judge\",\"provider\":\"openai\","
+        "\"endpoint\":\"https://dashscope.aliyuncs.com/compatible-mode/v1\","
+        "\"auth_type\":\"bearer\",\"auth_secret_ref\":\"DASHSCOPE_API_KEY\","
+        "\"params_json\":{\"model\":\"qwen-max\",\"temperature\":0,\"max_tokens\":8}}"
+    )
+
+    # Dataset presets
+    dataset_presets_json: str = (
+        "["
+        "{\"id\":\"entity-relation-hallucination-v1\","
+        "\"name\":\"Entity Relation Hallucination\","
+        "\"description\":\"Entity relation extraction hallucination benchmark\","
+        "\"source_type\":\"file_upload\","
+        "\"storage_uri\":\"d:\\\\LLM_platform\\\\entity_relation_hallucination.json\","
+        "\"schema_json\":{\"prompt_field\":\"description\"}},"
+        "{\"id\":\"prompt-attack-v1\","
+        "\"name\":\"Prompt Attack Benchmark\","
+        "\"description\":\"Prompt injection and jailbreak benchmark\","
+        "\"source_type\":\"file_upload\","
+        "\"storage_uri\":\"d:\\\\LLM_platform\\\\prompt_attack_dataset.json\","
+        "\"schema_json\":{\"prompt_field\":\"malicious_prompt\"}},"
+        "{\"id\":\"multimodal-attack-v1-100\","
+        "\"name\":\"Multimodal Attack 100\","
+        "\"description\":\"First 100 samples from multimodal attack dataset\","
+        "\"source_type\":\"file_upload\","
+        "\"storage_uri\":\"d:\\\\LLM_platform\\\\multimodal_attack_100.json\","
+        "\"schema_json\":{\"prompt_field\":\"adversarial.question\"}}"
+        "]"
+    )
+
     model_config = SettingsConfigDict(env_prefix="SAFETY_", env_file=".env", extra="ignore")
 
 
 @lru_cache
 def get_settings() -> Settings:
-    """
-    获取单例配置对象，避免重复读取环境变量
-    """
     return Settings()

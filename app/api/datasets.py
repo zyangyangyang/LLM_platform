@@ -43,6 +43,10 @@ def upload_dataset(
     description: str = Form(None),
     schema_json: str = Form(None),
     prompt_field: str = Form(None),
+    label_field: str = Form(None),
+    options_field: str = Form(None),
+    image_field: str = Form(None),
+    image_url_field: str = Form(None),
     system_prompt: str = Form(None),
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
@@ -53,6 +57,10 @@ def upload_dataset(
         description=description,
         schema_json_str=schema_json,
         prompt_field=prompt_field,
+        label_field=label_field,
+        options_field=options_field,
+        image_field=image_field,
+        image_url_field=image_url_field,
         system_prompt=system_prompt
     )
 

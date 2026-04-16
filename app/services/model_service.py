@@ -1,10 +1,15 @@
 import json
 import os
+import time
+import asyncio
+from urllib.parse import urlparse, urlunparse
 from typing import List, Dict, Any, Optional
 import httpx
 from openai import AsyncOpenAI
+from redis import asyncio as redis_asyncio
 from app.schemas.model_config import ModelConfigResponse
 from app.utils.logger import get_logger
+from app.core.config import get_settings
 
 logger = get_logger(__name__)
 
@@ -33,6 +38,8 @@ class ModelService:
         # 合并参数：优先使用运行时参数，其次使用配置中的默认参数
         params = dict(config.params_json or {})
         params.update(kwargs)
+
+        await ModelService._acquire_rate_limit(config, params)
         
         logger.info(f"Calling model {config.name} ({provider}) at {config.endpoint}")
 
@@ -45,6 +52,62 @@ class ModelService:
         else:
             # 默认回退到通用 HTTP 请求
             return await ModelService._call_generic_http(config, messages, params)
+
+    _redis_client: Optional[redis_asyncio.Redis] = None
+
+    @staticmethod
+    def _rate_limit_key(config: ModelConfigResponse, params: Dict[str, Any]) -> str:
+        provider = (config.provider or "unknown").lower()
+        model_name = str(params.get("model") or config.name or "unknown")
+        current_second = int(time.time())
+        return f"rate_limit:model:{provider}:{model_name}:{current_second}"
+
+    @staticmethod
+    async def _get_rate_limit_redis() -> Optional[redis_asyncio.Redis]:
+        settings = get_settings()
+        if ModelService._redis_client is not None:
+            return ModelService._redis_client
+        try:
+            parsed = urlparse(settings.celery_broker_url)
+            target_path = f"/{int(settings.model_rate_limit_redis_db)}"
+            redis_url = urlunparse((parsed.scheme, parsed.netloc, target_path, "", "", ""))
+            ModelService._redis_client = redis_asyncio.from_url(redis_url, decode_responses=True)
+            return ModelService._redis_client
+        except Exception as e:
+            logger.warning(f"Init model rate limit redis failed, fallback to no-limit: {e}")
+            return None
+
+    @staticmethod
+    async def _acquire_rate_limit(config: ModelConfigResponse, params: Dict[str, Any]):
+        settings = get_settings()
+        if not settings.model_rate_limit_enabled:
+            return
+
+        limit = max(1, int(settings.model_rate_limit_rps))
+        timeout_seconds = max(1, int(settings.model_rate_limit_wait_timeout_seconds))
+        deadline = time.monotonic() + timeout_seconds
+
+        redis_client = await ModelService._get_rate_limit_redis()
+        if redis_client is None:
+            return
+
+        while True:
+            key = ModelService._rate_limit_key(config, params)
+            try:
+                count = await redis_client.incr(key)
+                if count == 1:
+                    await redis_client.expire(key, 1)
+                if count <= limit:
+                    return
+            except Exception as e:
+                logger.warning(f"Rate limit redis unavailable during acquire, fallback to no-limit: {e}")
+                return
+
+            if time.monotonic() >= deadline:
+                raise RuntimeError(
+                    f"Model rate limit exceeded: provider={config.provider}, model={params.get('model', config.name)}"
+                )
+            await asyncio.sleep(0.1)
 
     @staticmethod
     async def _call_openai_compatible(

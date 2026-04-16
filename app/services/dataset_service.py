@@ -1,32 +1,26 @@
 import json
 import os
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote
-from fastapi import HTTPException, status, UploadFile
+
+from fastapi import HTTPException, UploadFile
+
 from app.core.config import get_settings
 from app.repositories.dataset_repo import DatasetRepository
-from app.schemas.dataset import DatasetCreate, DatasetResponse, DatasetSamplesResponse, DatasetSampleItem
+from app.schemas.dataset import DatasetCreate, DatasetResponse, DatasetSampleItem, DatasetSamplesResponse
+
 
 class DatasetService:
     @staticmethod
     def list_presets() -> List[Dict[str, Any]]:
-        """
-        获取平台预置数据集列表
-        """
         settings = get_settings()
         try:
-            presets = json.loads(settings.dataset_presets_json)
-            # 返回预置数据集信息
-            return presets
+            return json.loads(settings.dataset_presets_json)
         except json.JSONDecodeError:
             return []
 
     @staticmethod
     def create_from_preset(preset_id: str, user_id: str) -> DatasetResponse:
-        """
-        从预置创建数据集
-        """
-        # 1. Find preset
         settings = get_settings()
         try:
             presets = json.loads(settings.dataset_presets_json)
@@ -34,18 +28,16 @@ class DatasetService:
             if not preset:
                 raise HTTPException(status_code=404, detail="Preset dataset not found")
         except json.JSONDecodeError:
-             raise HTTPException(status_code=500, detail="Invalid system configuration")
-             
-        # 2. Create dataset
+            raise HTTPException(status_code=500, detail="Invalid system configuration")
+
         dataset_in = DatasetCreate(
             user_id=user_id,
             name=preset["name"],
             description=preset.get("description"),
             source_type=preset["source_type"],
             storage_uri=preset["storage_uri"],
-            schema_json=preset.get("schema_json", {})
+            schema_json=preset.get("schema_json", {}),
         )
-        
         dataset_id = DatasetRepository.create(dataset_in.model_dump())
         created = DatasetRepository.get_by_id(dataset_id)
         return DatasetResponse(**created)
@@ -69,8 +61,12 @@ class DatasetService:
         name: str,
         description: Optional[str] = None,
         schema_json_str: Optional[str] = None,
-        prompt_field: Optional[str] = None,   # 提示字段名，用于从样本中提取提示
-        system_prompt: Optional[str] = None   # 系统提示，用于生成完整的提示
+        prompt_field: Optional[str] = None,
+        label_field: Optional[str] = None,
+        options_field: Optional[str] = None,
+        image_field: Optional[str] = None,
+        image_url_field: Optional[str] = None,
+        system_prompt: Optional[str] = None,
     ) -> DatasetResponse:
         storage_path = DatasetService._save_uploaded_file(user_id, file)
         schema_obj: Dict[str, Any] = {}
@@ -81,19 +77,39 @@ class DatasetService:
                 raise HTTPException(status_code=400, detail="Invalid schema_json")
         if prompt_field:
             schema_obj["prompt_field"] = prompt_field
+        if label_field:
+            schema_obj["label_field"] = label_field
+        if options_field:
+            schema_obj["options_field"] = options_field
+        if image_field:
+            schema_obj["image_field"] = image_field
+        if image_url_field:
+            schema_obj["image_url_field"] = image_url_field
         if system_prompt:
             schema_obj["system_prompt"] = system_prompt
+
+        DatasetService._validate_required_schema_fields(schema_obj)
+
         dataset_in = DatasetCreate(
             user_id=user_id,
             name=name,
             description=description,
             source_type="file_upload",
             storage_uri=storage_path,
-            schema_json=schema_obj
+            schema_json=schema_obj,
         )
         dataset_id = DatasetRepository.create(dataset_in.model_dump())
         created = DatasetRepository.get_by_id(dataset_id)
         return DatasetResponse(**created)
+
+    @staticmethod
+    def _validate_required_schema_fields(schema_obj: Dict[str, Any]):
+        prompt_field = schema_obj.get("prompt_field")
+        label_field = schema_obj.get("label_field")
+        if not isinstance(prompt_field, str) or not prompt_field.strip():
+            raise HTTPException(status_code=400, detail="prompt_field is required")
+        if not isinstance(label_field, str) or not label_field.strip():
+            raise HTTPException(status_code=400, detail="label_field is required")
 
     @staticmethod
     def list_user_datasets(user_id: str) -> List[DatasetResponse]:
@@ -105,7 +121,7 @@ class DatasetService:
         dataset = DatasetRepository.get_by_id(dataset_id)
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
-        DatasetService._check_user_access(dataset['user_id'], user_id)
+        DatasetService._check_user_access(dataset["user_id"], user_id)
         return DatasetResponse(**dataset)
 
     @staticmethod
@@ -117,13 +133,11 @@ class DatasetService:
         dataset = DatasetRepository.get_by_id(dataset_id)
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
-        DatasetService._check_user_access(dataset['user_id'], user_id)
+        DatasetService._check_user_access(dataset["user_id"], user_id)
+
         items, total = DatasetService._read_samples(dataset, page, size)
         normalized = DatasetService._normalize_samples(items, dataset.get("schema_json") or {})
-        return DatasetSamplesResponse(
-            items=[DatasetSampleItem(**item) for item in normalized],
-            total=total
-        )
+        return DatasetSamplesResponse(items=[DatasetSampleItem(**item) for item in normalized], total=total)
 
     @staticmethod
     def load_samples_for_task(dataset_id: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -154,9 +168,11 @@ class DatasetService:
             raise HTTPException(status_code=400, detail="Dataset storage_uri missing")
         if storage_uri.startswith("http://") or storage_uri.startswith("https://"):
             raise HTTPException(status_code=400, detail="Remote dataset not supported")
+
         path = DatasetService._resolve_storage_path(storage_uri)
         if not os.path.exists(path):
             raise HTTPException(status_code=404, detail="Dataset file not found")
+
         ext = os.path.splitext(path)[1].lower()
         start = (page - 1) * size
         end = start + size
@@ -174,16 +190,16 @@ class DatasetService:
         ext = os.path.splitext(filename)[1].lower()
         if ext not in [".json", ".jsonl"]:
             raise HTTPException(status_code=400, detail="Only .json or .jsonl allowed")
+
         base_dir = os.path.join(os.getcwd(), "uploads", "datasets", user_id)
         os.makedirs(base_dir, exist_ok=True)
-        safe_name = filename
-        target_path = os.path.join(base_dir, safe_name)
+        target_path = os.path.join(base_dir, filename)
         idx = 1
         while os.path.exists(target_path):
             name_no_ext = os.path.splitext(filename)[0]
-            safe_name = f"{name_no_ext}_{idx}{ext}"
-            target_path = os.path.join(base_dir, safe_name)
+            target_path = os.path.join(base_dir, f"{name_no_ext}_{idx}{ext}")
             idx += 1
+
         try:
             with open(target_path, "wb") as out:
                 while True:
@@ -202,6 +218,7 @@ class DatasetService:
                 data = json.load(f)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid JSON file: {e}")
+
         items: List[Any]
         if isinstance(data, list):
             items = data
@@ -214,6 +231,7 @@ class DatasetService:
                 items = [data]
         else:
             items = [data]
+
         total = len(items)
         return items[start:end], total
 
@@ -243,31 +261,111 @@ class DatasetService:
     @staticmethod
     def _normalize_samples(items: List[Any], schema_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         normalized: List[Dict[str, Any]] = []
-        for idx, item in enumerate(items):
+        for idx, raw_item in enumerate(items):
+            item = DatasetService._prepare_sample(raw_item)
             prompt = DatasetService._extract_prompt(item, schema_json)
-            if not prompt:
+            has_media = DatasetService._has_multimodal_content(item)
+            if not prompt and not has_media:
                 continue
+
             sample_id = None
             if isinstance(item, dict):
-                sample_id = item.get("id")
-            normalized.append({
-                "id": sample_id if sample_id is not None else idx + 1,
-                "prompt": str(prompt),
-                "data": item
-            })
+                sample_id = item.get("id") or item.get("sample_id")
+            normalized.append(
+                {
+                    "id": sample_id if sample_id is not None else idx + 1,
+                    "prompt": str(prompt) if prompt is not None else "",
+                    "data": item,
+                }
+            )
         return normalized
 
     @staticmethod
     def _extract_prompt(sample: Any, schema_json: Dict[str, Any]) -> Any:
         if isinstance(schema_json, dict):
             prompt_field = schema_json.get("prompt_field")
-            if prompt_field and isinstance(sample, dict) and prompt_field in sample:
-                return sample.get(prompt_field)
+            if prompt_field and isinstance(sample, dict):
+                nested_value = DatasetService._get_nested_value(sample, str(prompt_field))
+                if nested_value is not None:
+                    return nested_value
+                if prompt_field in sample:
+                    return sample.get(prompt_field)
+
         if isinstance(sample, dict):
-            for key in ["prompt", "malicious_prompt", "jailbreak_prompt", "question", "input", "text", "content", "描述", "问题", "query", "instruction"]:
-                if key in sample and sample[key] is not None:
-                    return sample[key]
+            containers: List[Dict[str, Any]] = [sample]
+            if isinstance(sample.get("adversarial"), dict):
+                containers.insert(0, sample["adversarial"])
+            if isinstance(sample.get("original"), dict):
+                containers.append(sample["original"])
+
+            for container in containers:
+                for key in ["prompt", "malicious_prompt", "jailbreak_prompt", "question", "input", "text", "content", "query", "instruction"]:
+                    value = container.get(key)
+                    if value is None:
+                        continue
+                    if key == "question":
+                        options = None
+                        if isinstance(schema_json, dict):
+                            options_field = schema_json.get("options_field")
+                            if isinstance(options_field, str) and options_field.strip():
+                                options = DatasetService._get_nested_value(sample, options_field.strip())
+                        if options is None:
+                            options = container.get("options") or sample.get("options")
+                        if isinstance(options, dict) and options:
+                            return DatasetService._build_mcq_prompt(str(value), options)
+                    return value
             return None
+
         if isinstance(sample, str):
             return sample
         return None
+
+    @staticmethod
+    def _prepare_sample(sample: Any) -> Any:
+        if not isinstance(sample, dict):
+            return sample
+
+        original = sample.get("original")
+        adversarial = sample.get("adversarial")
+        if not isinstance(original, dict) and not isinstance(adversarial, dict):
+            return sample
+
+        merged: Dict[str, Any] = {}
+        if isinstance(original, dict):
+            merged.update(original)
+        if isinstance(adversarial, dict):
+            merged.update(adversarial)
+        merged["original"] = original if isinstance(original, dict) else {}
+        merged["adversarial"] = adversarial if isinstance(adversarial, dict) else {}
+        return merged
+
+    @staticmethod
+    def _has_multimodal_content(sample: Any) -> bool:
+        if not isinstance(sample, dict):
+            return False
+        media_keys = ["image", "image_url", "video", "video_url"]
+        if any(sample.get(k) for k in media_keys):
+            return True
+        for nested_key in ["adversarial", "original"]:
+            nested_obj = sample.get(nested_key)
+            if isinstance(nested_obj, dict) and any(nested_obj.get(k) for k in media_keys):
+                return True
+        return False
+
+    @staticmethod
+    def _get_nested_value(data: Dict[str, Any], field_path: str) -> Any:
+        if not field_path:
+            return None
+        current: Any = data
+        for part in field_path.split("."):
+            if not isinstance(current, dict) or part not in current:
+                return None
+            current = current.get(part)
+        return current
+
+    @staticmethod
+    def _build_mcq_prompt(question: str, options: Dict[str, Any]) -> str:
+        lines = [question.strip(), "", "Options:"]
+        for key, value in options.items():
+            lines.append(f"{key}. {value}")
+        return "\n".join(lines).strip()

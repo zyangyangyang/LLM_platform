@@ -62,7 +62,15 @@ class TaskRepository:
         return rowcount > 0
 
     @staticmethod
-    def create_run(task_id: str) -> str:
+    def try_mark_queued(task_id: str) -> bool:
+        rowcount = execute(
+            "UPDATE eval_tasks SET status = 'queued' WHERE id = %s AND status NOT IN ('queued', 'running')",
+            (task_id,)
+        )
+        return rowcount > 0
+
+    @staticmethod
+    def create_run(task_id: str, status: str = "queued") -> str:
         run_id = str(uuid4())
         # Determine run number
         last_run = fetch_one(
@@ -70,15 +78,31 @@ class TaskRepository:
             (task_id,)
         )
         run_no = (last_run['max_run'] or 0) + 1 if last_run else 1
-        
-        execute(
-            """
-            INSERT INTO eval_task_runs (id, task_id, run_no, status, started_at)
-            VALUES (%s, %s, %s, 'running', %s)
-            """,
-            (run_id, task_id, run_no, datetime.now())
-        )
+
+        if status == "running":
+            execute(
+                """
+                INSERT INTO eval_task_runs (id, task_id, run_no, status, started_at)
+                VALUES (%s, %s, %s, 'running', %s)
+                """,
+                (run_id, task_id, run_no, datetime.now())
+            )
+        else:
+            execute(
+                """
+                INSERT INTO eval_task_runs (id, task_id, run_no, status)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (run_id, task_id, run_no, status)
+            )
         return run_id
+
+    @staticmethod
+    def mark_run_running(run_id: str):
+        execute(
+            "UPDATE eval_task_runs SET status = 'running', started_at = %s WHERE id = %s",
+            (datetime.now(), run_id)
+        )
     
     @staticmethod
     def update_run_status(run_id: str, status: str, error_msg: str = None):
@@ -95,6 +119,10 @@ class TaskRepository:
         return fetch_all("SELECT * FROM eval_task_runs WHERE task_id = %s ORDER BY run_no DESC", (task_id,))
 
     @staticmethod
+    def get_run(run_id: str) -> Optional[Dict[str, Any]]:
+        return fetch_one("SELECT * FROM eval_task_runs WHERE id = %s", (run_id,))
+
+    @staticmethod
     def mark_running_as_failed(reason: str):
         execute(
             "UPDATE eval_task_runs SET status = 'failed', finished_at = %s, error_message = %s WHERE status = 'running'",
@@ -103,4 +131,28 @@ class TaskRepository:
         execute(
             "UPDATE eval_tasks SET status = 'failed', finished_at = %s WHERE status = 'running'",
             (datetime.now(),)
+        )
+
+    @staticmethod
+    def fail_stale_running(timeout_minutes: int, reason: str = "stale_running_timeout"):
+        now = datetime.now()
+        execute(
+            """
+            UPDATE eval_task_runs
+            SET status = 'failed', finished_at = %s, error_message = %s
+            WHERE status = 'running'
+              AND started_at IS NOT NULL
+              AND TIMESTAMPDIFF(MINUTE, started_at, %s) >= %s
+            """,
+            (now, reason, now, timeout_minutes)
+        )
+        execute(
+            """
+            UPDATE eval_tasks
+            SET status = 'failed', finished_at = %s
+            WHERE status = 'running'
+              AND started_at IS NOT NULL
+              AND TIMESTAMPDIFF(MINUTE, started_at, %s) >= %s
+            """,
+            (now, now, timeout_minutes)
         )
