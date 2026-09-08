@@ -18,14 +18,40 @@ function buildUrl(path: string) {
 }
 
 function getErrorMessage(data: unknown, status: number) {
+  const detailToChinese: Record<string, string> = {
+    "Incorrect username or password": "邮箱或密码错误",
+    "Could not validate credentials": "登录状态无效，请重新登录",
+    "Inactive user": "账号未激活，请联系管理员",
+    "Email already registered": "该邮箱已注册，请直接登录",
+    "Not authorized": "无权访问该资源",
+    "Not authorized to access this resource": "无权访问该资源",
+    "Task is already queued or running": "任务已在排队或运行中",
+    "Task not found": "任务不存在",
+    "Dataset not found": "数据集不存在",
+    "Model config not found": "模型配置不存在",
+    "Name cannot be empty": "姓名不能为空",
+    "Password must be at least 6 characters": "密码长度不能少于 6 位",
+    "User not found": "用户不存在",
+  };
+
+  const statusToChinese: Record<number, string> = {
+    400: "请求参数错误",
+    401: "未授权，请检查登录信息",
+    403: "无权限访问",
+    404: "请求资源不存在",
+    409: "请求冲突，请稍后重试",
+    422: "提交内容格式不正确",
+    500: "服务器内部错误，请稍后重试",
+  };
+
   if (data && typeof data === "object") {
     const record = data as Record<string, unknown>;
     const detail = record.detail;
     const message = record.message;
-    if (typeof detail === "string") return detail;
-    if (typeof message === "string") return message;
+    if (typeof detail === "string") return detailToChinese[detail] ?? detail;
+    if (typeof message === "string") return detailToChinese[message] ?? message;
   }
-  return `HTTP ${status}`;
+  return statusToChinese[status] ?? `请求失败（HTTP ${status}）`;
 }
 
 export function saveAccessToken(token: string) {
@@ -64,7 +90,7 @@ export async function loginWithPassword(username: string, password: string): Pro
 export async function getCurrentUser() {
   const token = getAccessToken();
   if (!token) {
-    throw new Error("No token found");
+    throw new Error("未检测到登录状态，请先登录");
   }
 
   const resp = await fetch(buildUrl("/api/auth/users/me"), {
@@ -85,6 +111,10 @@ export async function getCurrentUser() {
   return resp.json();
 }
 
+export async function updateCurrentUser(input: { email?: string; name?: string; password?: string }) {
+  return apiPutJSON("/api/auth/users/me", input);
+}
+
 async function apiGet(path: string) {
   const token = getAccessToken();
   const headers: Record<string, string> = {};
@@ -102,6 +132,18 @@ async function apiPostJSON(path: string, body?: unknown) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const resp = await fetch(buildUrl(path), { method: "POST", headers, body: body ? JSON.stringify(body) : undefined });
+  if (!resp.ok) {
+    const data: unknown = await resp.json().catch(() => ({}));
+    throw new Error(getErrorMessage(data, resp.status));
+  }
+  return resp.json();
+}
+
+async function apiPutJSON(path: string, body?: unknown) {
+  const token = getAccessToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(buildUrl(path), { method: "PUT", headers, body: body ? JSON.stringify(body) : undefined });
   if (!resp.ok) {
     const data: unknown = await resp.json().catch(() => ({}));
     throw new Error(getErrorMessage(data, resp.status));
@@ -218,4 +260,8 @@ export async function getEvalTaskSamples(taskId: string, page = 1, size = 50) {
 
 export async function getEvalTaskMetrics(taskId: string) {
   return apiGet(`/api/eval-tasks/${taskId}/metrics`);
+}
+
+export async function getEvalTaskProgress(taskId: string) {
+  return apiGet(`/api/eval-tasks/${taskId}/progress`);
 }

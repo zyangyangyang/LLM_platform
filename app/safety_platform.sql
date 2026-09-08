@@ -90,6 +90,8 @@ CREATE TABLE eval_task_runs (
   worker_id VARCHAR(100),
   started_at DATETIME(6),
   finished_at DATETIME(6),
+  progress_total INT NOT NULL DEFAULT 0,
+  progress_done INT NOT NULL DEFAULT 0,
   error_message TEXT,
   CONSTRAINT fk_eval_task_runs_task FOREIGN KEY (task_id) REFERENCES eval_tasks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

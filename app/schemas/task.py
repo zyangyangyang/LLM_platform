@@ -51,3 +51,12 @@ class EvalMetricItem(BaseModel):
     metric_name: str
     metric_value: float
     details_json: Optional[Dict[str, Any]] = None
+
+
+class EvalTaskProgressResponse(BaseModel):
+    task_id: str
+    run_id: Optional[str] = None
+    status: str
+    progress_done: int = 0
+    progress_total: int = 0
+    percent: float = 0.0

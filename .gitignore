@@ -1,1 +1,18 @@
 node_modules/
+
+# Environment / secrets
+.env
+.env.*
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Build outputs
+dist/
+build/
+frontend/dist/
+
+# Large report documents (not source)
+*.doc

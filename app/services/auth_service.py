@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.repositories.user_repo import UserRepository
-from app.schemas.user import UserCreate, UserLogin, Token
+from app.schemas.user import UserCreate, UserUpdate, Token
 from datetime import timedelta
 from app.core.config import get_settings
 
@@ -59,3 +59,43 @@ class AuthService:
             expires_delta=access_token_expires
         )
         return Token(access_token=access_token, token_type="bearer")
+
+    @staticmethod
+    def update_current_user(user_id: str, payload: UserUpdate) -> dict:
+        """
+        更新当前用户信息
+        支持修改姓名、邮箱和密码
+        """
+        current_user = UserRepository.get_by_id(user_id)
+        if not current_user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        update_data = {}
+        incoming = payload.model_dump(exclude_unset=True)
+
+        if "email" in incoming:
+            new_email = incoming["email"]
+            existing = UserRepository.get_by_email(new_email)
+            if existing and existing["id"] != user_id:
+                raise HTTPException(status_code=400, detail="Email already registered")
+            update_data["email"] = new_email
+
+        if "name" in incoming:
+            new_name = (incoming["name"] or "").strip()
+            if not new_name:
+                raise HTTPException(status_code=400, detail="Name cannot be empty")
+            update_data["name"] = new_name
+
+        if "password" in incoming:
+            new_password = incoming["password"] or ""
+            if len(new_password) < 6:
+                raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+            update_data["password_hash"] = get_password_hash(new_password)
+
+        if update_data:
+            UserRepository.update_user(user_id, update_data)
+
+        updated = UserRepository.get_by_id(user_id)
+        response = updated.copy() if updated else current_user.copy()
+        response.pop("password_hash", None)
+        return response

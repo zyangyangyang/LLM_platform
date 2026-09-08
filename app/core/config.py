@@ -1,6 +1,42 @@
 from functools import lru_cache
+from pathlib import Path
+import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = BASE_DIR.parent
+APP_ENV_FILE = BASE_DIR / ".env"
+
+
+def _load_env_file_to_os_environ(env_file: Path) -> None:
+    """
+    将 .env 中的键值对注入到 os.environ 中，确保代码里用 os.getenv(...) 读取
+    到的是 .env 里的真实值（例如 DASHSCOPE_API_KEY，不带 SAFETY_ 前缀）。
+    """
+    try:
+        if not env_file.exists():
+            return
+
+        content = env_file.read_text(encoding="utf-8", errors="ignore")
+        for raw_line in content.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip("'").strip('"')
+            if key and value and key not in os.environ:
+                os.environ[key] = value
+    except Exception:
+        # 启动阶段尽量不阻断服务
+        return
+
+
+# 在创建 Settings 之前就先把 .env 注入进当前进程环境中
+_load_env_file_to_os_environ(APP_ENV_FILE)
 
 
 class Settings(BaseSettings):
@@ -58,24 +94,30 @@ class Settings(BaseSettings):
         "\"name\":\"Entity Relation Hallucination\","
         "\"description\":\"Entity relation extraction hallucination benchmark\","
         "\"source_type\":\"file_upload\","
-        "\"storage_uri\":\"d:\\\\LLM_platform\\\\entity_relation_hallucination.json\","
+        f"\"storage_uri\":\"{(PROJECT_ROOT / 'entity_relation_hallucination.json').as_posix()}\","
         "\"schema_json\":{\"prompt_field\":\"description\"}},"
         "{\"id\":\"prompt-attack-v1\","
         "\"name\":\"Prompt Attack Benchmark\","
         "\"description\":\"Prompt injection and jailbreak benchmark\","
         "\"source_type\":\"file_upload\","
-        "\"storage_uri\":\"d:\\\\LLM_platform\\\\prompt_attack_dataset.json\","
+        f"\"storage_uri\":\"{(PROJECT_ROOT / 'prompt_attack_dataset.json').as_posix()}\","
         "\"schema_json\":{\"prompt_field\":\"malicious_prompt\"}},"
         "{\"id\":\"multimodal-attack-v1-100\","
         "\"name\":\"Multimodal Attack 100\","
         "\"description\":\"First 100 samples from multimodal attack dataset\","
         "\"source_type\":\"file_upload\","
-        "\"storage_uri\":\"d:\\\\LLM_platform\\\\multimodal_attack_100.json\","
+        f"\"storage_uri\":\"{(PROJECT_ROOT / 'multimodal_attack_100.json').as_posix()}\","
         "\"schema_json\":{\"prompt_field\":\"adversarial.question\"}}"
         "]"
     )
 
-    model_config = SettingsConfigDict(env_prefix="SAFETY_", env_file=".env", extra="ignore")
+    # 固定读取 app/.env，避免从不同工作目录启动时读取错配置文件
+    model_config = SettingsConfigDict(
+        env_prefix="SAFETY_",
+        env_file=str(APP_ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 @lru_cache

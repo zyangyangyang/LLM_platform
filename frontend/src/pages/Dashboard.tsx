@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { 
   ShieldAlert, 
@@ -14,9 +14,48 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
+import { listDatasets, listEvalTasks, listModels } from '@/lib/auth';
+
+type EvalTask = {
+  id: string;
+  name: string;
+  status: string;
+  created_at?: string;
+};
 
 const Dashboard: React.FC = () => {
-    // Icons used: ShieldAlert, ShieldCheck, FileSearch, Activity, ArrowRight, AlertTriangle, Zap, Lock
+  const [tasks, setTasks] = useState<EvalTask[]>([]);
+  const [modelCount, setModelCount] = useState(0);
+  const [datasetCount, setDatasetCount] = useState(0);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const [modelsRaw, datasetsRaw, tasksRaw] = await Promise.all([
+          listModels().catch(() => []),
+          listDatasets().catch(() => []),
+          listEvalTasks().catch(() => []),
+        ]);
+        setModelCount(Array.isArray(modelsRaw) ? modelsRaw.length : 0);
+        setDatasetCount(Array.isArray(datasetsRaw) ? datasetsRaw.length : 0);
+        setTasks(Array.isArray(tasksRaw) ? tasksRaw : []);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : '加载控制台数据失败');
+      }
+    };
+    loadDashboardData();
+  }, []);
+
+  const runningCount = useMemo(
+    () => tasks.filter((t) => ['queued', 'running'].includes((t.status || '').toLowerCase())).length,
+    [tasks]
+  );
+
+  const finishedCount = useMemo(
+    () => tasks.filter((t) => ['finished', 'completed'].includes((t.status || '').toLowerCase())).length,
+    [tasks]
+  );
  
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50">
@@ -72,10 +111,10 @@ const Dashboard: React.FC = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {[
-            { label: "已评测模型", value: "12", icon: activityIcon, color: "bg-blue-100 text-blue-600" },
-            { label: "发现高危漏洞", value: "3", icon: alertIcon, color: "bg-red-100 text-red-600" },
-            { label: "整体安全评分", value: "85", icon: shieldIcon, color: "bg-green-100 text-green-600" },
-            { label: "今日API调用", value: "1.2k", icon: zapIcon, color: "bg-purple-100 text-purple-600" }
+            { label: "模型配置数", value: String(modelCount), icon: activityIcon, color: "bg-blue-100 text-blue-600" },
+            { label: "数据集数量", value: String(datasetCount), icon: alertIcon, color: "bg-red-100 text-red-600" },
+            { label: "进行中任务", value: String(runningCount), icon: shieldIcon, color: "bg-green-100 text-green-600" },
+            { label: "已完成任务", value: String(finishedCount), icon: zapIcon, color: "bg-purple-100 text-purple-600" }
           ].map((stat, i) => (
              <Card key={i} className="border-border shadow-sm hover:shadow-md transition-shadow">
                <CardContent className="p-6 flex items-center space-x-4">
@@ -174,32 +213,33 @@ const Dashboard: React.FC = () => {
                </CardHeader>
                <CardContent className="pt-4">
                  <div className="space-y-4">
-                   {[
-                     { name: "LLaMA-2-7b 对抗基准测试", status: "已完成", risk: "中风险", date: "2024-03-20", type: "攻击" },
-                     { name: "ChatGLM3 提示词注入专项", status: "进行中", risk: "检测中...", date: "2024-03-21", type: "评估" },
-                     { name: "Qwen-14b 幻觉检测", status: "已完成", risk: "低风险", date: "2024-03-19", type: "防御" }
-                   ].map((task, i) => (
-                     <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
+                   {error ? <div className="text-sm text-red-600">{error}</div> : null}
+                   {tasks.slice(0, 5).map((task, i) => (
+                     <div key={task.id || i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
                        <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                         <div className={`w-2 h-2 rounded-full ${task.status === '进行中' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                         <div className={`w-2 h-2 rounded-full ${['running', 'queued'].includes((task.status || '').toLowerCase()) ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
                          <div>
                            <p className="font-medium text-sm text-foreground">{task.name}</p>
-                           <p className="text-xs text-muted-foreground">{task.type} • {task.date}</p>
+                           <p className="text-xs text-muted-foreground">{task.created_at ? new Date(task.created_at).toLocaleString() : '-'}</p>
                          </div>
                        </div>
                        <div className="flex items-center space-x-3">
                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                           task.risk === '中风险' ? 'bg-orange-100 text-orange-700' : 
-                           task.risk === '低风险' ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600'
+                           ['failed'].includes((task.status || '').toLowerCase())
+                             ? 'bg-red-100 text-red-700'
+                             : ['running', 'queued'].includes((task.status || '').toLowerCase())
+                             ? 'bg-blue-50 text-blue-600'
+                             : 'bg-green-100 text-green-700'
                          }`}>
-                           {task.risk}
+                           {task.status}
                          </span>
-                         <Link to="/results">
+                         <Link to={`/results?taskId=${encodeURIComponent(task.id)}`}>
                            <Button variant="ghost" size="sm" className="h-8 text-xs">详情</Button>
                          </Link>
                        </div>
                      </div>
                    ))}
+                   {tasks.length === 0 ? <div className="text-sm text-slate-500">暂无任务，请先新建评测任务。</div> : null}
                  </div>
                </CardContent>
              </Card>
