@@ -10,6 +10,9 @@ class BaseAttack(ABC):
     种子/对抗样本均为统一结构 {id, prompt, data}（data 为原始样本 dict，
     可包含 image 等媒体字段）。攻击只应修改 prompt 或 data 中的媒体内容，
     保持其余结构不变。
+
+    注意：apply 为异步方法，允许算法内部 await 模型调用等异步操作；
+    纯同步变换（如字符串操作）直接在协程内执行即可。
     """
 
     # 算法注册名，对应攻击策略 config_json 里的 "algorithm"。
@@ -19,7 +22,7 @@ class BaseAttack(ABC):
         self.params = params or {}
 
     @abstractmethod
-    def apply(self, seed: Dict[str, Any]) -> Dict[str, Any]:
+    async def apply(self, seed: Dict[str, Any]) -> Dict[str, Any]:
         """对单个种子样本执行攻击，返回与 seed 同结构的对抗样本。"""
 
 
@@ -27,14 +30,22 @@ class AttackRegistry:
     """
     集中存储攻击算法实现：算法名字符串 -> 算法类。
 
-    新增算法只需继承 BaseAttack、实现 apply，并在模块末尾调用
-    `AttackRegistry.register(YourAttack)` 完成注册，无需改动其他代码。
+    新增算法只需继承 BaseAttack、实现 async apply，并用装饰器注册：
+
+        @AttackRegistry.register
+        class MyAttack(BaseAttack):
+            algorithm = "my_attack"
+            async def apply(self, seed): ...
+
+    算法文件放在本包任意子目录下即会被自动发现导入，
+    无需手动修改任何 __init__.py。
     """
 
     _registry: Dict[str, Type[BaseAttack]] = {}
 
     @classmethod
     def register(cls, algo_class: Type[BaseAttack]) -> Type[BaseAttack]:
+        """注册算法类。可作为装饰器使用：@AttackRegistry.register。"""
         name = getattr(algo_class, "algorithm", "") or algo_class.__name__
         cls._registry[name] = algo_class
         return algo_class

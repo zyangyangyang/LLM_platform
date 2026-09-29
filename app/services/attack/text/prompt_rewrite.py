@@ -3,6 +3,7 @@ from typing import Any, Dict
 from app.services.attack.base import AttackRegistry, BaseAttack
 
 
+@AttackRegistry.register
 class PromptRewriteAttack(BaseAttack):
     """
     文本改写攻击：用参数化模板/前缀对种子 prompt 进行越狱式改写。
@@ -14,7 +15,7 @@ class PromptRewriteAttack(BaseAttack):
 
     algorithm = "prompt_rewrite"
 
-    def apply(self, seed: Dict[str, Any]) -> Dict[str, Any]:
+    async def apply(self, seed: Dict[str, Any]) -> Dict[str, Any]:
         prompt = seed.get("prompt") or ""
         template = self.params.get("template")
         prefix = self.params.get("prefix")
@@ -29,6 +30,3 @@ class PromptRewriteAttack(BaseAttack):
         result = dict(seed)
         result["prompt"] = new_prompt
         return result
-
-
-AttackRegistry.register(PromptRewriteAttack)

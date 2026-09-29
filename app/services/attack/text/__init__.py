@@ -1,3 +1,1 @@
-from app.services.attack.text.prompt_rewrite import PromptRewriteAttack
-
-__all__ = ["PromptRewriteAttack"]
+# 攻击算法由 attack/__init__.py 自动发现导入，无需在此显式 import。

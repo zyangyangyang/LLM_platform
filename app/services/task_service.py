@@ -205,7 +205,7 @@ class TaskService:
 
             # 防御·模型侧：加固 system prompt
             if defense:
-                system_prompt = defense.build_system_prompt(system_prompt)
+                system_prompt = await defense.build_system_prompt(system_prompt)
 
             try:
                 # 初始化进度：总数取本次实际加载的样本数
@@ -230,12 +230,14 @@ class TaskService:
 
                 # 任务级攻击：仅在未含已固化对抗产物的种子样本上执行
                 if attack and not TaskService._sample_is_prebaked(sample):
-                    sample = attack.apply(sample)
+                    sample = await attack.apply(sample)
 
-                # 防御·输入侧：对进入模型的 prompt 做清洗/检测
+                # 防御·输入侧：清洗 + 检测
                 prompt = sample["prompt"]
+                input_verdict = None
                 if defense:
-                    prompt = defense.apply_input(prompt)
+                    prompt = await defense.apply_input(prompt)
+                    input_verdict = await defense.detect_input(prompt)
                 messages: List[Dict[str, Any]] = []
 
                 if task_type == "multimodal":
@@ -275,9 +277,11 @@ class TaskService:
                 try:
                     response_text = await ModelService.call_model(model_config, messages)
 
-                    # 防御·输出侧：对模型输出做检测/改写
+                    # 防御·输出侧：先检测，再净化/改写
+                    output_verdict = None
                     if defense:
-                        response_text = defense.apply_output(response_text)
+                        output_verdict = await defense.detect_output(response_text)
+                        response_text = await defense.apply_output(response_text)
 
                     target_text = TaskService._extract_target_text(sample.get("data"))
                     label_text = TaskService._extract_label_text(sample.get("data"), dataset_schema)
@@ -291,6 +295,11 @@ class TaskService:
                         sample_data=sample.get("data"),
                         judge_config=judge_model_config,
                     )
+                    score_json = {"exact_match": score, "judge_reason": judge_reason}
+                    if input_verdict is not None:
+                        score_json["defense_input"] = input_verdict.to_dict()
+                    if output_verdict is not None:
+                        score_json["defense_output"] = output_verdict.to_dict()
                     EvalResultRepository.insert_sample_result(
                         {
                             "task_run_id": run_id,
@@ -298,7 +307,7 @@ class TaskService:
                             "input_text": prompt,
                             "model_output": response_text,
                             "labels_json": {"target_triple": target_text, "label": label_text},
-                            "score_json": {"exact_match": score, "judge_reason": judge_reason},
+                            "score_json": score_json,
                         }
                     )
                     completed_sample_ids.add(sample_id)
