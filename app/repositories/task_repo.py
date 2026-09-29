@@ -160,6 +160,26 @@ class TaskRepository:
         return fetch_one("SELECT * FROM eval_task_runs WHERE id = %s", (run_id,))
 
     @staticmethod
+    def init_run_progress(run_id: str, total: int):
+        """
+        初始化运行进度字段。
+        """
+        execute(
+            "UPDATE eval_task_runs SET progress_total = %s, progress_done = %s WHERE id = %s",
+            (int(total), 0, run_id),
+        )
+
+    @staticmethod
+    def update_run_progress(run_id: str, done: int):
+        """
+        更新运行进度（已完成样本数）。
+        """
+        execute(
+            "UPDATE eval_task_runs SET progress_done = %s WHERE id = %s",
+            (int(done), run_id),
+        )
+
+    @staticmethod
     def mark_running_as_failed(reason: str):
         execute(
             "UPDATE eval_task_runs SET status = 'failed', finished_at = %s, error_message = %s WHERE status = 'running'",

@@ -68,3 +68,26 @@ class UserRepository:
             (user_id,),
         )
         return [row["name"] for row in rows]
+
+    @staticmethod
+    def update_user(user_id: str, data: Dict[str, Any]) -> bool:
+        set_clauses = []
+        params = []
+
+        if "email" in data:
+            set_clauses.append("email = %s")
+            params.append(data["email"])
+        if "name" in data:
+            set_clauses.append("name = %s")
+            params.append(data["name"])
+        if "password_hash" in data:
+            set_clauses.append("password_hash = %s")
+            params.append(data["password_hash"])
+
+        if not set_clauses:
+            return False
+
+        query = f"UPDATE users SET {', '.join(set_clauses)} WHERE id = %s"
+        params.append(user_id)
+        count = execute(query, tuple(params))
+        return count > 0

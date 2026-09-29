@@ -1,37 +1,49 @@
 import React, { useState } from 'react';
 import Navbar from '../components/Navbar';
 import { Mail, Lock, CheckCircle, ArrowRight, Scale } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { getAccessToken, loginWithPassword, saveAccessToken } from '../lib/auth';
+import { useNavigate } from 'react-router-dom';
+import { loginWithPassword, registerUser, saveAccessToken } from '../lib/auth';
 
 const Login: React.FC = () => {
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const [token, setToken] = useState<string>(() => getAccessToken() || '');
+  const [success, setSuccess] = useState<string>('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccess('');
+    setLoginSuccess(false);
     try {
-      const data = await loginWithPassword(email, password);
-      saveAccessToken(data.access_token);
-      setToken(data.access_token);
-      console.log('Login success');
-      // 登录成功后跳转到 dashboard
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 500);
+      if (isRegisterMode) {
+        await registerUser({ name, email, password });
+        setSuccess('注册成功，请使用新账号登录');
+        setIsRegisterMode(false);
+        setPassword('');
+      } else {
+        const data = await loginWithPassword(email, password);
+        saveAccessToken(data.access_token);
+        setLoginSuccess(true);
+        console.log('Login success');
+        // 登录成功后跳转到 dashboard
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 500);
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message || '登录失败');
+        setError(err.message || (isRegisterMode ? '注册失败' : '登录失败'));
       } else {
-        setError('登录失败');
+        setError(isRegisterMode ? '注册失败' : '登录失败');
       }
-      console.error('Login failed', err);
+      console.error(isRegisterMode ? 'Register failed' : 'Login failed', err);
     } finally {
       setIsLoading(false);
     }
@@ -117,11 +129,31 @@ const Login: React.FC = () => {
       <div className="relative z-40 flex-1 flex items-center justify-center lg:justify-end p-4 sm:p-8 min-h-[calc(100vh-64px)]">
         <div className="w-full max-w-lg space-y-10 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-10 border border-white/20 lg:mr-16 xl:mr-24">
           <div className="text-center lg:text-left">
-            <h2 className="text-4xl font-bold text-gray-900">欢迎回来</h2>
-            <p className="mt-3 text-gray-600 text-lg">请输入您的账号信息以访问评测控制台</p>
+            <h2 className="text-4xl font-bold text-gray-900">{isRegisterMode ? '创建账号' : '欢迎回来'}</h2>
+            <p className="mt-3 text-gray-600 text-lg">
+              {isRegisterMode ? '填写信息完成注册，然后登录控制台' : '请输入您的账号信息以访问评测控制台'}
+            </p>
           </div>
           
-          <form onSubmit={handleLogin} className="space-y-7">
+          <form onSubmit={handleSubmit} className="space-y-7">
+            {isRegisterMode ? (
+              <div>
+                <label htmlFor="name" className="block text-base font-medium text-gray-700 mb-2">
+                  姓名
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  className="block w-full px-4 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white text-gray-900 text-base"
+                  placeholder="请输入姓名"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+            ) : null}
+
             <div>
               <label htmlFor="email" className="block text-base font-medium text-gray-700 mb-2">
                 工作邮箱
@@ -171,17 +203,19 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-base text-gray-900">
-                30天内自动登录
-              </label>
-            </div>
+            {!isRegisterMode ? (
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-base text-gray-900">
+                  30天内自动登录
+                </label>
+              </div>
+            ) : null}
 
             <button
               type="submit"
@@ -194,11 +228,11 @@ const Login: React.FC = () => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  登录中...
+                  {isRegisterMode ? '注册中...' : '登录中...'}
                 </span>
               ) : (
                 <span className="flex items-center">
-                  立即登录 <ArrowRight className="ml-2 h-4 w-4" />
+                  {isRegisterMode ? '立即注册' : '立即登录'} <ArrowRight className="ml-2 h-4 w-4" />
                 </span>
               )}
             </button>
@@ -210,7 +244,13 @@ const Login: React.FC = () => {
             </div>
           ) : null}
 
-          {token ? (
+          {success ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-4 text-base text-emerald-700">
+              {success}
+            </div>
+          ) : null}
+
+          {loginSuccess ? (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-5 py-4">
               <div className="text-base font-medium text-emerald-800">登录成功！正在跳转...</div>
             </div>
@@ -218,10 +258,19 @@ const Login: React.FC = () => {
 
           <div className="mt-10 border-t border-gray-200 pt-6">
             <p className="text-center text-base text-gray-600">
-              还没有账号？{' '}
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                申请企业试用
-              </a>
+              {isRegisterMode ? '已有账号？' : '还没有账号？'}{' '}
+              <button
+                type="button"
+                className="font-medium text-blue-600 hover:text-blue-500"
+                onClick={() => {
+                  setIsRegisterMode((prev) => !prev);
+                  setError('');
+                  setSuccess('');
+                  setLoginSuccess(false);
+                }}
+              >
+                {isRegisterMode ? '去登录' : '立即注册'}
+              </button>
             </p>
           </div>
         </div>

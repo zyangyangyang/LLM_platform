@@ -3,4 +3,12 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+.env.*
+venv/
 uploads/
+dist/
+build/
+frontend/dist/
+
+# Large report documents (not source)
+*.doc

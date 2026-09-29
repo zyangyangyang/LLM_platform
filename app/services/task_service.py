@@ -195,8 +195,10 @@ class TaskService:
             elif dataset_schema.get("system_prompt"):
                 system_prompt = dataset_schema.get("system_prompt")
 
+            # 加载任务样本，并初始化运行进度（用于前端进度条）
             samples = DatasetService.load_samples_for_task(task["dataset_id"], limit=100)
             completed_sample_ids = EvalResultRepository.list_sample_ids_by_run(run_id)
+            total_samples = len(samples)
 
             attack = TaskService._build_attack(task.get("attack_strategy_id"))
             defense = TaskService._build_defense(task.get("defense_strategy_id"))
@@ -205,9 +207,25 @@ class TaskService:
             if defense:
                 system_prompt = defense.build_system_prompt(system_prompt)
 
-            for sample in samples:
+            try:
+                # 初始化进度：总数取本次实际加载的样本数
+                TaskRepository.init_run_progress(run_id, total_samples)
+                # 若本次运行已存在部分样本结果，则把进度初始化到已完成数量
+                TaskRepository.update_run_progress(run_id, len(completed_sample_ids))
+            except Exception:
+                # 数据库结构可能尚未补齐列；不影响任务主流程
+                pass
+
+            # 断点续跑 + 进度更新融合：
+            # - 已完成样本：跳过重跑，但仍按循环索引推进进度显示
+            # - 未完成样本：正常跑完后在 finally 中推进进度
+            for idx, sample in enumerate(samples, start=1):
                 sample_id = str(sample.get("id"))
                 if sample_id in completed_sample_ids:
+                    try:
+                        TaskRepository.update_run_progress(run_id, idx)
+                    except Exception:
+                        pass
                     continue
 
                 # 任务级攻击：仅在未含已固化对抗产物的种子样本上执行
@@ -218,7 +236,6 @@ class TaskService:
                 prompt = sample["prompt"]
                 if defense:
                     prompt = defense.apply_input(prompt)
-
                 messages: List[Dict[str, Any]] = []
 
                 if task_type == "multimodal":
@@ -306,6 +323,12 @@ class TaskService:
                             "score_json": {"error": str(e)},
                         }
                     )
+                finally:
+                    # 不管本样本成功/失败，都认为“已处理”一次用于进度展示
+                    try:
+                        TaskRepository.update_run_progress(run_id, idx)
+                    except Exception:
+                        pass
 
             logger.info(f"Run {run_id} completed.")
             TaskRepository.update_run_status(run_id, "completed")

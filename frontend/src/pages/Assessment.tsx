@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { 
   ShieldAlert, ShieldCheck, FileSearch, Upload, Info, Check, Play 
@@ -10,18 +10,161 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { createDatasetFromPreset, createEvalTask, createModelFromPreset, listDatasetPresets, listDatasets, listModelPresets, listModels, runEvalTask } from '@/lib/auth';
+
+type DatasetOption = {
+  id: string;
+  name: string;
+  source: 'user' | 'preset';
+};
+
+type ModelOption = {
+  id: string;
+  name: string;
+  source: 'user' | 'preset';
+};
 
 const Assessment: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("attack");
   const [loading, setLoading] = useState(false);
+  const [datasetOptions, setDatasetOptions] = useState<DatasetOption[]>([]);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [selectedDataset, setSelectedDataset] = useState('');
+  const [taskName, setTaskName] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const handleStart = () => {
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const [userDatasetsRaw, presetDatasetsRaw, userModelsRaw, presetModelsRaw] = await Promise.all([
+          listDatasets().catch(() => []),
+          listDatasetPresets().catch(() => []),
+          listModels().catch(() => []),
+          listModelPresets().catch(() => []),
+        ]);
+
+        const userDatasets = Array.isArray(userDatasetsRaw) ? userDatasetsRaw : [];
+        const presetDatasets = Array.isArray(presetDatasetsRaw) ? presetDatasetsRaw : [];
+        const userModels = Array.isArray(userModelsRaw) ? userModelsRaw : [];
+        const presetModels = Array.isArray(presetModelsRaw) ? presetModelsRaw : [];
+
+        const merged: DatasetOption[] = [];
+        const mergedModels: ModelOption[] = [];
+        const usedIds = new Set<string>();
+        const usedModelIds = new Set<string>();
+
+        userDatasets.forEach((item: unknown) => {
+          const row = item as { id?: string; name?: string };
+          if (row.id && row.name && !usedIds.has(row.id)) {
+            merged.push({ id: row.id, name: row.name, source: 'user' });
+            usedIds.add(row.id);
+          }
+        });
+
+        presetDatasets.forEach((item: unknown) => {
+          const row = item as { id?: string; name?: string };
+          if (row.id && row.name && !usedIds.has(row.id)) {
+            merged.push({ id: row.id, name: `${row.name}（预置）`, source: 'preset' });
+            usedIds.add(row.id);
+          }
+        });
+
+        userModels.forEach((item: unknown) => {
+          const row = item as { id?: string; name?: string };
+          if (row.id && row.name && !usedModelIds.has(row.id)) {
+            mergedModels.push({ id: row.id, name: row.name, source: 'user' });
+            usedModelIds.add(row.id);
+          }
+        });
+
+        presetModels.forEach((item: unknown) => {
+          const row = item as { id?: string; name?: string };
+          if (row.id && row.name && !usedModelIds.has(row.id)) {
+            mergedModels.push({ id: row.id, name: `${row.name}（预置）`, source: 'preset' });
+            usedModelIds.add(row.id);
+          }
+        });
+
+        setDatasetOptions(merged);
+        setModelOptions(mergedModels);
+      } catch {
+        setDatasetOptions([]);
+        setModelOptions([]);
+      }
+    };
+
+    loadOptions();
+  }, []);
+
+  // 根据“所选数据集”推断 task_type，确保后端使用正确的 system prompt 与评分策略。
+  // 说明：用户可能会“从预置创建数据集”，此时前端拉取到的会变成 source='user'，
+  // 所以不能只依赖 datasetOption.source；改为优先依据 dataset 的名称映射。
+  const resolveTaskType = (datasetOption?: DatasetOption) => {
+    const name = (datasetOption?.name || '').trim();
+
+    // 预置数据集名称（用户从预置创建后名称仍保持一致）
+    if (name.includes('Entity Relation Hallucination')) return 'hallucination';
+    if (name.includes('Prompt Attack Benchmark')) return 'prompt_attack';
+    if (name.includes('Multimodal Attack 100')) return 'multimodal';
+
+    // 兜底：如果仍能拿到预置 id，也做一次兼容映射
+    if (datasetOption?.source === 'preset') {
+      if (datasetOption.id.includes('entity-relation-hallucination')) return 'hallucination';
+      if (datasetOption.id.includes('prompt-attack')) return 'prompt_attack';
+      if (datasetOption.id.includes('multimodal-attack')) return 'multimodal';
+    }
+
+    // 进一步兜底：退回 tabs
+    if (activeTab === 'attack') return 'prompt_attack';
+    if (activeTab === 'defense') return 'safety';
+    return 'hallucination';
+  };
+
+  const handleStart = async () => {
+    setError('');
+    setSuccess('');
+    if (!selectedModel || !selectedDataset) {
+      setError('请先选择模型和数据集');
+      return;
+    }
     setLoading(true);
-    // Simulate API delay
-    setTimeout(() => {
-        window.location.href = '/results';
-    }, 2000);
+    try {
+      let modelConfigId = selectedModel;
+      let datasetId = selectedDataset;
+
+      const modelOption = modelOptions.find((m) => m.id === selectedModel);
+      const datasetOption = datasetOptions.find((d) => d.id === selectedDataset);
+
+      // 预置模型/数据集先落库成用户资源，再用于创建任务
+      if (modelOption?.source === 'preset') {
+        const createdModel = await createModelFromPreset(modelOption.id) as { id: string };
+        modelConfigId = createdModel.id;
+      }
+      if (datasetOption?.source === 'preset') {
+        const createdDataset = await createDatasetFromPreset(datasetOption.id) as { id: string };
+        datasetId = createdDataset.id;
+      }
+
+      const taskType = resolveTaskType(datasetOption);
+      const task = await createEvalTask({
+        name: taskName.trim() || `评测任务-${new Date().toLocaleString()}`,
+        model_config_id: modelConfigId,
+        dataset_id: datasetId,
+        task_type: taskType,
+      }) as { id: string };
+
+      await runEvalTask(task.id);
+      setSuccess('任务已创建并开始运行，正在跳转结果页');
+      navigate(`/results?taskId=${encodeURIComponent(task.id)}`);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '创建或运行任务失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -94,32 +237,45 @@ const Assessment: React.FC = () => {
             <CardContent className="pt-6 space-y-6">
               
               {/* Target Model Selection */}
+              <div className="space-y-2">
+                <Label htmlFor="task-name">任务名称</Label>
+                <Input
+                  id="task-name"
+                  className="bg-white"
+                  value={taskName}
+                  onChange={(e) => setTaskName(e.target.value)}
+                  placeholder="例如：千问提示词注入评测"
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="model-select">目标评测模型 *</Label>
-                  <Select>
+                  <Select value={selectedModel} onValueChange={setSelectedModel}>
                     <SelectTrigger id="model-select" className="bg-white">
                       <SelectValue placeholder="选择要评测的模型" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt-4">GPT-4 (OpenAI)</SelectItem>
-                      <SelectItem value="claude-3">Claude 3 (Anthropic)</SelectItem>
-                      <SelectItem value="llama-2-7b">LLaMA 2 7B (Meta)</SelectItem>
-                      <SelectItem value="custom-api">Custom API Endpoint</SelectItem>
+                      {modelOptions.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="dataset">测试数据集 *</Label>
-                   <Select>
+                   <Select value={selectedDataset} onValueChange={setSelectedDataset}>
                     <SelectTrigger id="dataset" className="bg-white">
                       <SelectValue placeholder="选择基准测试集" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="default-bench">Standard Security Bench v1.0</SelectItem>
-                      <SelectItem value="adv-glue">Adversarial GLUE</SelectItem>
-                      <SelectItem value="real-toxic">RealToxicPrompts</SelectItem>
+                      {datasetOptions.map((dataset) => (
+                        <SelectItem key={dataset.id} value={dataset.id}>
+                          {dataset.name}
+                        </SelectItem>
+                      ))}
                       <SelectItem value="custom-upload">上传自定义数据集...</SelectItem>
                     </SelectContent>
                   </Select>
@@ -143,15 +299,15 @@ const Assessment: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Adversarial */}
+                  {/* Multimodal */}
                   <div className="flex items-start space-x-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => {}}>
-                    <Checkbox id="dim-adversarial" defaultChecked />
+                    <Checkbox id="dim-multimodal" defaultChecked />
                     <div className="grid gap-1.5 leading-none">
-                      <label htmlFor="dim-adversarial" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
-                        对抗攻击 (Adversarial)
+                      <label htmlFor="dim-multimodal" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                        多模态攻击 (Multimodal)
                       </label>
                       <p className="text-xs text-muted-foreground">
-                        通过微扰动样本测试模型鲁棒性。
+                        通过图像/视频与文本联合攻击评估模型的安全性与鲁棒性。
                       </p>
                     </div>
                   </div>
@@ -199,9 +355,13 @@ const Assessment: React.FC = () => {
             </CardContent>
             
             <CardFooter className="bg-slate-50/50 border-t border-gray-100 p-6 flex justify-between items-center">
-               <div className="flex items-center text-xs text-muted-foreground gap-1">
-                  <Info className="w-4 h-4" />
-                  本次评测预计消耗 500 Credits
+               <div className="flex flex-col items-start text-xs text-muted-foreground gap-1">
+                  <div className="flex items-center gap-1">
+                    <Info className="w-4 h-4" />
+                    任务将调用真实后端接口并进入评测队列
+                  </div>
+                  {error ? <div className="text-red-600">{error}</div> : null}
+                  {success ? <div className="text-emerald-600">{success}</div> : null}
                </div>
                <div className="flex gap-3">
                   <Link to="/dashboard">

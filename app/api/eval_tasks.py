@@ -1,8 +1,17 @@
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, status
 from app.api.auth import get_current_user
-from app.schemas.task import EvalTaskBase, EvalTaskCreate, EvalTaskResponse, EvalTaskRunResponse, EvalSampleResultsResponse, EvalMetricItem
+from app.schemas.task import (
+    EvalTaskBase,
+    EvalTaskCreate,
+    EvalTaskResponse,
+    EvalTaskRunResponse,
+    EvalSampleResultsResponse,
+    EvalMetricItem,
+    EvalTaskProgressResponse,
+)
 from app.services.task_service import TaskService
+from app.repositories.task_repo import TaskRepository
 
 router = APIRouter()
 
@@ -73,3 +82,31 @@ def get_task_metrics(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     return TaskService.get_task_metrics(task_id, current_user["id"])
+
+
+@router.get("/{task_id}/progress", response_model=EvalTaskProgressResponse)
+def get_task_progress(
+    task_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    获取任务运行进度（用于前端进度条）
+    """
+    # 复用任务读取逻辑，确保校验任务归属
+    TaskService.get_task(task_id, current_user["id"])
+
+    runs = TaskRepository.get_runs(task_id)
+    latest = runs[0] if runs else None  # get_runs 已按 run_no desc 排序
+
+    progress_total = int(latest.get("progress_total") or 0) if latest else 0
+    progress_done = int(latest.get("progress_done") or 0) if latest else 0
+    percent = (progress_done / progress_total * 100.0) if progress_total > 0 else 0.0
+
+    return EvalTaskProgressResponse(
+        task_id=task_id,
+        run_id=(latest.get("id") if latest else None),
+        status=(latest.get("status") if latest else "pending"),
+        progress_done=progress_done,
+        progress_total=progress_total,
+        percent=percent,
+    )

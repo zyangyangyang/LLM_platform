@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldCheck, Menu, X, LayoutDashboard, FileText, Play, Trophy, Shield, AlertTriangle, Lock, Eye, FileText as FileTextIcon, ChevronDown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { clearAccessToken, getAccessToken, getCurrentUser, updateCurrentUser } from '@/lib/auth';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,10 +12,91 @@ import {
 const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [rankingOpen, setRankingOpen] = React.useState(false);
+  const [isLoggedIn, setIsLoggedIn] = React.useState(() => Boolean(getAccessToken()));
+  const [userName, setUserName] = React.useState('用户');
+  const [userEmail, setUserEmail] = React.useState('');
+  const [profileOpen, setProfileOpen] = React.useState(false);
+  const [profileName, setProfileName] = React.useState('');
+  const [profileEmail, setProfileEmail] = React.useState('');
+  const [profilePassword, setProfilePassword] = React.useState('');
+  const [profileError, setProfileError] = React.useState('');
+  const [profileSuccess, setProfileSuccess] = React.useState('');
+  const [savingProfile, setSavingProfile] = React.useState(false);
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
   // Check if we are in "App Mode" (dashboard, assessment, results) to show different nav items
   const isAppMode = ['/dashboard', '/assessment', '/results'].some(path => location.pathname.startsWith(path));
+
+  React.useEffect(() => {
+    const token = getAccessToken();
+    setIsLoggedIn(Boolean(token));
+    if (!token) {
+      setUserName('用户');
+      return;
+    }
+    getCurrentUser()
+      .then((user) => {
+        const profile = user as { name?: string; email?: string };
+        setUserName(profile.name || profile.email || '用户');
+        setUserEmail(profile.email || '');
+      })
+      .catch(() => {
+        setUserName('用户');
+        setUserEmail('');
+      });
+  }, [location.pathname]);
+
+  const userInitials = React.useMemo(() => {
+    const text = userName.trim();
+    if (!text) return 'U';
+    const chars = Array.from(text).filter((ch) => ch !== ' ');
+    return chars.slice(0, 2).join('').toUpperCase();
+  }, [userName]);
+
+  const openProfileMenu = () => {
+    setProfileName(userName === '用户' ? '' : userName);
+    setProfileEmail(userEmail);
+    setProfilePassword('');
+    setProfileError('');
+    setProfileSuccess('');
+    setProfileOpen(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    setProfileError('');
+    setProfileSuccess('');
+    try {
+      const payload: { name?: string; email?: string; password?: string } = {};
+      if (profileName.trim()) payload.name = profileName.trim();
+      if (profileEmail.trim()) payload.email = profileEmail.trim();
+      if (profilePassword.trim()) payload.password = profilePassword.trim();
+      if (!payload.name && !payload.email && !payload.password) {
+        setProfileError('请至少修改一项信息');
+        return;
+      }
+      const updated = await updateCurrentUser(payload) as { name?: string; email?: string };
+      setUserName(updated.name || updated.email || '用户');
+      setUserEmail(updated.email || '');
+      setProfilePassword('');
+      setProfileSuccess('个人信息已更新');
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setProfileError(error.message || '更新失败');
+      } else {
+        setProfileError('更新失败');
+      }
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleLogout = () => {
+    clearAccessToken();
+    setIsLoggedIn(false);
+    setProfileOpen(false);
+  };
 
   const publicLinks = [
     { name: '首页', path: '/' },
@@ -40,9 +122,12 @@ const Navbar: React.FC = () => {
   return (
     <nav data-cmp="Navbar" className={`${isLoginPage ? 'bg-gradient-to-b from-white/40 via-white/20 to-white/5 backdrop-blur-md border-b border-white/20' : 'bg-white/90 backdrop-blur-md border-b border-border'} sticky top-0 z-50 w-full transition-all duration-300`}>
       <div className="max-w-[1440px] mx-auto px-2 sm:px-3 lg:px-4">
-        <div className="flex justify-between h-16 items-center">
+        <div className="flex h-16 items-center">
           {/* Logo */}
-          <Link to={isAppMode ? "/dashboard" : "/"} className="flex items-center space-x-2 group">
+          <Link
+            to={isAppMode ? "/dashboard" : "/"}
+            className="flex items-center space-x-2 group shrink-0"
+          >
             <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200">
               <ShieldCheck className="text-white w-5 h-5" />
             </div>
@@ -53,7 +138,7 @@ const Navbar: React.FC = () => {
 
           {/* Desktop Navigation */}
           {!isLoginPage && (
-            <div className="hidden md:flex items-center space-x-8">
+            <div className="hidden md:flex flex-1 justify-center items-center space-x-8">
               {isAppMode ? (
                 appLinks.map((link) => (
                   <Link
@@ -115,18 +200,99 @@ const Navbar: React.FC = () => {
           )}
 
           {/* Action Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-4 ml-auto justify-end">
             {!isLoginPage && !isAppMode && (
               <>
-                <Link to="/login" className="text-lg font-medium text-primary hover:text-blue-700 transition-colors">
-                  登录
-                </Link>
-                <Link
-                  to="/dashboard"
-                  className="bg-primary text-white hover:bg-blue-700 px-5 py-2 rounded-md text-lg font-medium transition-colors shadow-custom hover:shadow-lg transform active:scale-95 duration-200"
-                >
-                  免费试用
-                </Link>
+                {!isLoggedIn ? (
+                  <>
+                    <Link to="/login" className="text-lg font-medium text-primary hover:text-blue-700 transition-colors">
+                      登录
+                    </Link>
+                    <Link
+                      to="/dashboard"
+                      className="bg-primary text-white hover:bg-blue-700 px-5 py-2 rounded-md text-lg font-medium transition-colors shadow-custom hover:shadow-lg transform active:scale-95 duration-200"
+                    >
+                      免费试用
+                    </Link>
+                  </>
+                ) : (
+                  <div className="flex items-center space-x-4">
+                    <Link to="/dashboard" className="text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
+                      控制台
+                    </Link>
+                    <DropdownMenu open={profileOpen} onOpenChange={setProfileOpen}>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={openProfileMenu}
+                          className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-base font-bold ring-2 ring-white hover:bg-blue-200 transition-colors"
+                        >
+                          {userInitials}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-80 p-4 space-y-3">
+                        <div className="pb-3 border-b border-slate-200">
+                          <div className="text-sm text-slate-500">当前账号</div>
+                          <div className="text-base font-semibold text-slate-900">{userName}</div>
+                          <div className="text-sm text-slate-600 break-all">{userEmail || '未设置邮箱'}</div>
+                        </div>
+                        <form onSubmit={handleSaveProfile} className="space-y-3">
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">姓名</label>
+                            <input
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                              value={profileName}
+                              onChange={(e) => setProfileName(e.target.value)}
+                              placeholder="请输入姓名"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">邮箱</label>
+                            <input
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                              value={profileEmail}
+                              onChange={(e) => setProfileEmail(e.target.value)}
+                              placeholder="请输入邮箱"
+                              type="email"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-600 mb-1">新密码</label>
+                            <input
+                              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                              value={profilePassword}
+                              onChange={(e) => setProfilePassword(e.target.value)}
+                              placeholder="不修改可留空"
+                              type="password"
+                            />
+                          </div>
+                          {profileError ? (
+                            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{profileError}</div>
+                          ) : null}
+                          {profileSuccess ? (
+                            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{profileSuccess}</div>
+                          ) : null}
+                          <div className="flex items-center justify-between pt-1">
+                            <button
+                              type="button"
+                              onClick={handleLogout}
+                              className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                            >
+                              退出登录
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={savingProfile}
+                              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-60"
+                            >
+                              {savingProfile ? '保存中...' : '保存修改'}
+                            </button>
+                          </div>
+                        </form>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
               </>
             )}
              {isAppMode && (
@@ -134,9 +300,44 @@ const Navbar: React.FC = () => {
                  <Link to="/" className="text-lg font-medium text-muted-foreground hover:text-primary transition-colors">
                    返回首页
                  </Link>
-                 <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-base font-bold ring-2 ring-white">
-                   JD
-                 </div>
+                 <DropdownMenu open={profileOpen} onOpenChange={setProfileOpen}>
+                   <DropdownMenuTrigger asChild>
+                     <button
+                       type="button"
+                       onClick={openProfileMenu}
+                       className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-base font-bold ring-2 ring-white hover:bg-blue-200 transition-colors"
+                     >
+                       {userInitials}
+                     </button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="end" className="w-80 p-4 space-y-3">
+                     <div className="pb-3 border-b border-slate-200">
+                       <div className="text-sm text-slate-500">当前账号</div>
+                       <div className="text-base font-semibold text-slate-900">{userName}</div>
+                       <div className="text-sm text-slate-600 break-all">{userEmail || '未设置邮箱'}</div>
+                     </div>
+                     <form onSubmit={handleSaveProfile} className="space-y-3">
+                       <div>
+                         <label className="block text-xs text-slate-600 mb-1">姓名</label>
+                         <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder="请输入姓名" />
+                       </div>
+                       <div>
+                         <label className="block text-xs text-slate-600 mb-1">邮箱</label>
+                         <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} placeholder="请输入邮箱" type="email" />
+                       </div>
+                       <div>
+                         <label className="block text-xs text-slate-600 mb-1">新密码</label>
+                         <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={profilePassword} onChange={(e) => setProfilePassword(e.target.value)} placeholder="不修改可留空" type="password" />
+                       </div>
+                       {profileError ? <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{profileError}</div> : null}
+                       {profileSuccess ? <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{profileSuccess}</div> : null}
+                       <div className="flex items-center justify-between pt-1">
+                         <button type="button" onClick={handleLogout} className="rounded-md border border-red-200 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50">退出登录</button>
+                         <button type="submit" disabled={savingProfile} className="rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-60">{savingProfile ? '保存中...' : '保存修改'}</button>
+                       </div>
+                     </form>
+                   </DropdownMenuContent>
+                 </DropdownMenu>
                </div>
              )}
             {isLoginPage && (
@@ -174,6 +375,26 @@ const Navbar: React.FC = () => {
             ))}
             {!isAppMode && (
               <>
+                {isLoggedIn ? (
+                  <button
+                    type="button"
+                    className="block px-3 py-2 rounded-md text-lg font-medium text-muted-foreground hover:text-primary hover:bg-secondary"
+                    onClick={() => {
+                      setIsOpen(false);
+                      openProfileMenu();
+                    }}
+                  >
+                    个人中心
+                  </button>
+                ) : (
+                  <Link
+                    to="/login"
+                    className="block px-3 py-2 rounded-md text-lg font-medium text-muted-foreground hover:text-primary hover:bg-secondary"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    登录
+                  </Link>
+                )}
                 <div className="px-3 py-2 text-lg font-semibold text-foreground border-t border-border mt-2 pt-3">
                   排行榜
                 </div>
@@ -196,6 +417,7 @@ const Navbar: React.FC = () => {
           </div>
         </div>
       )}
+
     </nav>
   );
 };
