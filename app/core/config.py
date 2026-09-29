@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # Runtime
     max_concurrent_runs: int = 2
-    stale_running_timeout_minutes: int = 60
+    stale_running_timeout_minutes: int = 10
 
     # Celery / Redis
     celery_broker_url: str = "redis://127.0.0.1:6379/0"
@@ -47,8 +47,8 @@ class Settings(BaseSettings):
     semantic_judge_model_json: str = (
         "{\"name\":\"semantic-judge\",\"provider\":\"openai\","
         "\"endpoint\":\"https://dashscope.aliyuncs.com/compatible-mode/v1\","
-        "\"auth_type\":\"bearer\",\"auth_secret_ref\":\"DASHSCOPE_API_KEY\","
-        "\"params_json\":{\"model\":\"qwen-max\",\"temperature\":0,\"max_tokens\":8}}"
+        "\"auth_type\":\"bearer\",\"auth_secret_ref\":\"DASHSCOPE_API_KEY1\","
+        "\"params_json\":{\"model\":\"qwen3.8-flash\",\"temperature\":0,\"max_tokens\":8}}"
     )
 
     # Dataset presets

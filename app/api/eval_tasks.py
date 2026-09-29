@@ -37,6 +37,16 @@ def get_task(
     """
     return TaskService.get_task(task_id, current_user["id"])
 
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task(
+    task_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    删除任务及其运行记录
+    """
+    TaskService.delete_task(task_id, current_user["id"])
+
 @router.post("/{task_id}/run", response_model=EvalTaskRunResponse)
 async def run_task(
     task_id: str,

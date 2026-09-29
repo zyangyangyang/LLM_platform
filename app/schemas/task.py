@@ -7,6 +7,7 @@ class EvalTaskBase(BaseModel):
     model_config_id: str
     dataset_id: str
     attack_strategy_id: Optional[str] = None
+    defense_strategy_id: Optional[str] = None
     metric_set_id: Optional[str] = None
     task_type: Optional[Literal["hallucination", "prompt_attack", "multimodal", "safety"]] = "hallucination"
 

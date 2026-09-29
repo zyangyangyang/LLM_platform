@@ -37,6 +37,14 @@ class DatasetRepository:
         return row
 
     @staticmethod
+    def exists_by_user_and_name(user_id: str, name: str) -> bool:
+        row = fetch_one(
+            "SELECT 1 FROM datasets WHERE user_id = %s AND name = %s LIMIT 1",
+            (user_id, name)
+        )
+        return row is not None
+
+    @staticmethod
     def list_by_user(user_id: str) -> List[Dict[str, Any]]:
         rows = fetch_all(
             "SELECT * FROM datasets WHERE user_id = %s ORDER BY created_at DESC",
@@ -49,3 +57,15 @@ class DatasetRepository:
                 except json.JSONDecodeError:
                     row['schema_json'] = {}
         return rows
+
+    @staticmethod
+    def delete(dataset_id: str) -> int:
+        return execute("DELETE FROM datasets WHERE id = %s", (dataset_id,))
+
+    @staticmethod
+    def count_referencing_tasks(dataset_id: str) -> int:
+        row = fetch_one(
+            "SELECT COUNT(*) AS c FROM eval_tasks WHERE dataset_id = %s",
+            (dataset_id,),
+        )
+        return int(row["c"]) if row else 0

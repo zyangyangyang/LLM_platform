@@ -10,9 +10,9 @@ class TaskRepository:
         task_id = str(uuid4())
         execute(
             """
-            INSERT INTO eval_tasks 
-            (id, user_id, name, model_config_id, dataset_id, attack_strategy_id, metric_set_id, task_type, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'pending')
+            INSERT INTO eval_tasks
+            (id, user_id, name, model_config_id, dataset_id, attack_strategy_id, defense_strategy_id, metric_set_id, task_type, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending')
             """,
             (
                 task_id,
@@ -21,6 +21,7 @@ class TaskRepository:
                 data['model_config_id'],
                 data['dataset_id'],
                 data.get('attack_strategy_id'),
+                data.get('defense_strategy_id'),
                 data.get('metric_set_id'),
                 data.get('task_type', 'hallucination')
             )
@@ -28,8 +29,44 @@ class TaskRepository:
         return task_id
 
     @staticmethod
+    def exists_by_user_and_name(user_id: str, name: str) -> bool:
+        row = fetch_one(
+            "SELECT 1 FROM eval_tasks WHERE user_id = %s AND name = %s LIMIT 1",
+            (user_id, name)
+        )
+        return row is not None
+
+    @staticmethod
     def get_task(task_id: str) -> Optional[Dict[str, Any]]:
         return fetch_one("SELECT * FROM eval_tasks WHERE id = %s", (task_id,))
+
+    @staticmethod
+    def delete(task_id: str) -> int:
+        return execute("DELETE FROM eval_tasks WHERE id = %s", (task_id,))
+
+    @staticmethod
+    def exists_attack_strategy(strategy_id: str) -> bool:
+        row = fetch_one(
+            "SELECT 1 FROM attack_strategies WHERE id = %s LIMIT 1",
+            (strategy_id,),
+        )
+        return row is not None
+
+    @staticmethod
+    def exists_defense_strategy(strategy_id: str) -> bool:
+        row = fetch_one(
+            "SELECT 1 FROM defense_strategies WHERE id = %s LIMIT 1",
+            (strategy_id,),
+        )
+        return row is not None
+
+    @staticmethod
+    def exists_metric_set(metric_set_id: str) -> bool:
+        row = fetch_one(
+            "SELECT 1 FROM metric_sets WHERE id = %s LIMIT 1",
+            (metric_set_id,),
+        )
+        return row is not None
 
     @staticmethod
     def list_tasks(user_id: str) -> List[Dict[str, Any]]:
@@ -156,3 +193,25 @@ class TaskRepository:
             """,
             (now, now, timeout_minutes)
         )
+
+    @staticmethod
+    def count_by_status() -> Dict[str, int]:
+        rows = fetch_all(
+            """
+            SELECT status, COUNT(*) AS count
+            FROM eval_tasks
+            GROUP BY status
+            """
+        )
+        return {row["status"]: int(row["count"]) for row in rows}
+
+    @staticmethod
+    def count_active_tasks() -> int:
+        row = fetch_one(
+            """
+            SELECT COUNT(*) AS count
+            FROM eval_tasks
+            WHERE status IN ('queued', 'running')
+            """
+        )
+        return int(row["count"]) if row else 0

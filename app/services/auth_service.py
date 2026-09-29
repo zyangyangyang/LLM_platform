@@ -33,7 +33,13 @@ class AuthService:
             "name": user.name
         }
         user_id = UserRepository.create(user_data)
-        return {"id": user_id, "email": user.email, "name": user.name}
+        UserRepository.assign_role(user_id, UserRepository.EVALUATOR_ROLE)
+        return {
+            "id": user_id,
+            "email": user.email,
+            "name": user.name,
+            "roles": [UserRepository.EVALUATOR_ROLE],
+        }
 
     @staticmethod
     def authenticate_user(username: str, password: str) -> Token:

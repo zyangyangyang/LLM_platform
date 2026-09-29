@@ -83,6 +83,17 @@ def get_dataset(
     """
     return DatasetService.get_dataset(dataset_id, current_user["id"])
 
+@router.delete("/datasets/{dataset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_dataset(
+    dataset_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    删除单个数据集
+    被评测任务引用的数据集不允许删除（返回 409）
+    """
+    DatasetService.delete_dataset(dataset_id, current_user["id"])
+
 @router.get("/datasets/{dataset_id}/samples", response_model=DatasetSamplesResponse)
 def get_dataset_samples(
     dataset_id: str,

@@ -12,6 +12,7 @@ class ModelConfigBase(BaseModel):
 
 class ModelConfigCreate(ModelConfigBase):
     user_id: str
+    platform_preset_id: Optional[str] = None
 
 class ModelConfigUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
@@ -21,9 +22,26 @@ class ModelConfigUpdate(BaseModel):
     auth_secret_ref: Optional[str] = Field(None, max_length=255)
     params_json: Optional[Dict[str, Any]] = None
 
-class ModelConfigResponse(ModelConfigBase):
+class ModelConfigResponse(BaseModel):
     id: str
     user_id: str
+    name: str
+    provider: str
+    endpoint: str
+    auth_type: str
+    params_json: Optional[Dict[str, Any]] = None
+    has_auth_secret: bool = False
+    platform_preset_id: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ModelConfigInternal(ModelConfigBase):
+    id: str
+    user_id: str
+    platform_preset_id: Optional[str] = None
     created_at: datetime
 
     class Config:

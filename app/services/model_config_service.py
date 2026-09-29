@@ -1,142 +1,204 @@
 import json
-import os
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List
+
 from fastapi import HTTPException, status
+
 from app.core.config import get_settings
 from app.repositories.model_config_repo import ModelConfigRepository
-from app.schemas.model_config import ModelConfigCreate, ModelConfigResponse
+from app.repositories.platform_preset_repo import PlatformPresetRepository
+from app.schemas.model_config import ModelConfigCreate, ModelConfigInternal, ModelConfigResponse
+from app.schemas.platform_preset import PlatformModelPresetCreate, PlatformModelPresetResponse
+from app.schemas.platform_preset import PlatformModelKeyCreate, PlatformModelKeyResponse
+
 
 class ModelConfigService:
-    """
-    模型配置服务层
-    处理模型配置的 CRUD 操作及权限控制
-    """
-    
     @staticmethod
     def _check_user_access(resource_user_id: str, user_id: str):
         if resource_user_id != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this resource"
+                detail="Not authorized to access this resource",
             )
 
     @staticmethod
-    def list_presets() -> List[Dict[str, Any]]:
-        """
-        获取平台预置模型列表
-        """
+    def _load_settings_presets() -> List[Dict[str, Any]]:
         settings = get_settings()
         try:
             presets = json.loads(settings.model_presets_json)
-            # 过滤敏感信息，不直接返回 endpoint 或 环境变量名
-            safe_presets = []
-            for p in presets:
-                safe_presets.append({
-                    "id": p.get("id"),
-                    "name": p.get("name"),
-                    "provider": p.get("provider"),
-                    "description": p.get("description", "Platform preset model")
-                })
-            return safe_presets
+            return presets if isinstance(presets, list) else []
         except json.JSONDecodeError:
             return []
 
     @staticmethod
+    def _check_name_unique(name: str, user_id: str, allow_preset_name: bool = False):
+        if not allow_preset_name and any(p.get("name") == name for p in ModelConfigService._load_settings_presets()):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Model name '{name}' conflicts with a preset model",
+            )
+        if ModelConfigRepository.exists_by_user_and_name(user_id, name):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Model name '{name}' already exists",
+            )
+
+    @staticmethod
+    def list_presets() -> List[Dict[str, Any]]:
+        safe_presets: List[Dict[str, Any]] = []
+        for preset in ModelConfigService._load_settings_presets():
+            safe_presets.append(
+                {
+                    "id": preset.get("id"),
+                    "name": preset.get("name"),
+                    "provider": preset.get("provider"),
+                    "description": preset.get("description", "Platform preset model"),
+                }
+            )
+        for preset in PlatformPresetRepository.list_model_presets():
+            safe_presets.append(
+                {
+                    "id": preset.get("id"),
+                    "name": preset.get("name"),
+                    "provider": preset.get("provider"),
+                    "description": preset.get("description", "Platform preset model"),
+                }
+            )
+        return safe_presets
+
+    @staticmethod
+    def create_platform_preset(
+        preset_in: PlatformModelPresetCreate,
+        admin_user_id: str,
+    ) -> PlatformModelPresetResponse:
+        preset_id = PlatformPresetRepository.create_model_preset(
+            preset_in.model_dump(),
+            admin_user_id,
+        )
+        created = PlatformPresetRepository.get_model_preset(preset_id)
+        data = dict(created)
+        data["has_auth_secret"] = bool(data.get("auth_secret_ref"))
+        data.pop("auth_secret_ref", None)
+        return PlatformModelPresetResponse(**data)
+
+    @staticmethod
+    def create_platform_model_key(
+        preset_id: str,
+        key_in: PlatformModelKeyCreate,
+        admin_user_id: str,
+    ) -> PlatformModelKeyResponse:
+        preset = PlatformPresetRepository.get_model_preset(preset_id)
+        if not preset:
+            raise HTTPException(status_code=404, detail="Preset model not found")
+        key_id = PlatformPresetRepository.create_model_key(
+            preset_id,
+            key_in.model_dump(),
+            admin_user_id,
+        )
+        created = PlatformPresetRepository.get_model_key(key_id)
+        return PlatformModelKeyResponse(**created)
+
+    @staticmethod
+    def list_platform_model_keys(preset_id: str) -> List[PlatformModelKeyResponse]:
+        preset = PlatformPresetRepository.get_model_preset(preset_id)
+        if not preset:
+            raise HTTPException(status_code=404, detail="Preset model not found")
+        keys = PlatformPresetRepository.list_model_keys(preset_id)
+        return [PlatformModelKeyResponse(**item) for item in keys]
+
+    @staticmethod
+    def delete_platform_model_key(preset_id: str, key_id: str):
+        preset = PlatformPresetRepository.get_model_preset(preset_id)
+        if not preset:
+            raise HTTPException(status_code=404, detail="Preset model not found")
+        key = PlatformPresetRepository.get_model_key(key_id)
+        if not key or key.get("model_preset_id") != preset_id:
+            raise HTTPException(status_code=404, detail="Model key not found")
+        PlatformPresetRepository.delete_model_key(key_id)
+
+    @staticmethod
     def create_from_preset(preset_id: str, user_id: str) -> ModelConfigResponse:
-        """
-        根据预置模型创建用户配置
-        """
-        # 1. 查找预置模型配置
-        settings = get_settings()
-        try:
-            presets = json.loads(settings.model_presets_json)
-            preset = next((p for p in presets if p["id"] == preset_id), None)
-            if not preset:
-                raise HTTPException(status_code=404, detail="Preset model not found")
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=500, detail="Invalid system configuration")
+        platform_preset_id = None
+        preset = next(
+            (p for p in ModelConfigService._load_settings_presets() if p.get("id") == preset_id),
+            None,
+        )
+        if not preset:
+            preset = PlatformPresetRepository.get_model_preset(preset_id)
+            if preset:
+                platform_preset_id = preset_id
+        if not preset:
+            raise HTTPException(status_code=404, detail="Preset model not found")
 
-        # 3. 解析预置模型的鉴权信息 (从环境变量读取 Key)
-        auth_secret_ref = None
-        if preset.get("auth_secret_ref"):
-            env_var = preset["auth_secret_ref"]
-            auth_secret_ref = os.getenv(env_var) # 这里直接把环境变量的值取出来存入库 (简单做法)
-            # 更安全的做法是存 env_var 的引用，然后在 ModelService 里解析，但目前架构是存值的。
-            # 为了安全，这里我们暂时假设 auth_secret_ref 存的是实际 Key，
-            # 或者我们约定：如果 auth_type='env'，则 auth_secret_ref 存变量名。
-            # 为了兼容现有逻辑，我们先把环境变量的值读出来存进去。
-            if not auth_secret_ref:
-                 # 如果环境变量没配，可能导致调用失败
-                 pass 
-
-        # 3. 创建配置
         model_in = ModelConfigCreate(
             user_id=user_id,
             name=preset["name"],
             provider=preset["provider"],
             endpoint=preset["endpoint"],
             auth_type=preset.get("auth_type", "bearer"),
-            auth_secret_ref=auth_secret_ref,
-            params_json=preset.get("params_json", {})
+            auth_secret_ref=preset.get("auth_secret_ref"),
+            params_json=preset.get("params_json", {}),
+            platform_preset_id=platform_preset_id,
         )
-        
-        return ModelConfigService.create_model_config(model_in, user_id)
+
+        return ModelConfigService.create_model_config(model_in, user_id, allow_preset_name=True)
 
     @staticmethod
-    def create_model_config(model_in: ModelConfigCreate, user_id: str) -> ModelConfigResponse:
-        """
-        创建模型配置
-        校验归属用户，再写入数据库
-        """
+    def create_model_config(model_in: ModelConfigCreate, user_id: str, allow_preset_name: bool = False) -> ModelConfigResponse:
         ModelConfigService._check_user_access(model_in.user_id, user_id)
-        
-        model_data = model_in.dict()
-        model_id = ModelConfigRepository.create(model_data)
-        
-        # Fetch the created record to return full response
+        ModelConfigService._check_name_unique(model_in.name, user_id, allow_preset_name=allow_preset_name)
+        model_id = ModelConfigRepository.create(model_in.model_dump())
         created_model = ModelConfigRepository.get_by_id(model_id)
         if not created_model:
-             raise HTTPException(status_code=500, detail="Failed to create model config")
-             
-        return ModelConfigResponse(**created_model)
+            raise HTTPException(status_code=500, detail="Failed to create model config")
+        return ModelConfigService._to_response(created_model)
 
     @staticmethod
     def list_user_models(user_id: str) -> List[ModelConfigResponse]:
-        """
-        列出用户下的所有模型配置
-        """
         models = ModelConfigRepository.list_by_user(user_id)
-        return [ModelConfigResponse(**m) for m in models]
+        return [ModelConfigService._to_response(m) for m in models]
 
     @staticmethod
     def get_model_config(model_id: str, user_id: str) -> ModelConfigResponse:
-        """
-        获取单个模型配置详情
-        会自动检查该配置所属用户
-        """
         model = ModelConfigRepository.get_by_id(model_id)
         if not model:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Model config not found"
+                detail="Model config not found",
             )
 
         ModelConfigService._check_user_access(model["user_id"], user_id)
-
-        return ModelConfigResponse(**model)
+        return ModelConfigService._to_response(model)
 
     @staticmethod
     def delete_model_config(model_id: str, user_id: str):
-        """
-        删除模型配置
-        """
         model = ModelConfigRepository.get_by_id(model_id)
         if not model:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Model config not found"
+                detail="Model config not found",
             )
 
         ModelConfigService._check_user_access(model["user_id"], user_id)
-        
+        if ModelConfigRepository.count_referencing_tasks(model_id) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Model config is in use by evaluation tasks; delete those tasks first",
+            )
         ModelConfigRepository.delete(model_id)
+
+    @staticmethod
+    def get_model_config_internal(model_id: str) -> ModelConfigInternal:
+        model = ModelConfigRepository.get_by_id(model_id)
+        if not model:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Model config not found",
+            )
+        return ModelConfigInternal(**model)
+
+    @staticmethod
+    def _to_response(model: Dict[str, Any]) -> ModelConfigResponse:
+        data = dict(model)
+        data["has_auth_secret"] = bool(data.get("auth_secret_ref"))
+        data.pop("auth_secret_ref", None)
+        return ModelConfigResponse(**data)

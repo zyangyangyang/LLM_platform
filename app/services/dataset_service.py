@@ -7,28 +7,62 @@ from fastapi import HTTPException, UploadFile
 
 from app.core.config import get_settings
 from app.repositories.dataset_repo import DatasetRepository
+from app.repositories.platform_preset_repo import PlatformPresetRepository
 from app.schemas.dataset import DatasetCreate, DatasetResponse, DatasetSampleItem, DatasetSamplesResponse
+from app.schemas.platform_preset import PlatformDatasetPresetCreate, PlatformDatasetPresetResponse
 
 
 class DatasetService:
     @staticmethod
     def list_presets() -> List[Dict[str, Any]]:
         settings = get_settings()
+        presets: List[Dict[str, Any]] = []
         try:
-            return json.loads(settings.dataset_presets_json)
+            settings_presets = json.loads(settings.dataset_presets_json)
+            if isinstance(settings_presets, list):
+                presets.extend(settings_presets)
         except json.JSONDecodeError:
-            return []
+            pass
+        presets.extend(PlatformPresetRepository.list_dataset_presets())
+        return presets
 
     @staticmethod
-    def create_from_preset(preset_id: str, user_id: str) -> DatasetResponse:
+    def create_platform_preset(
+        preset_in: PlatformDatasetPresetCreate,
+        admin_user_id: str,
+    ) -> PlatformDatasetPresetResponse:
+        preset_id = PlatformPresetRepository.create_dataset_preset(
+            preset_in.model_dump(),
+            admin_user_id,
+        )
+        created = PlatformPresetRepository.get_dataset_preset(preset_id)
+        return PlatformDatasetPresetResponse(**created)
+
+    @staticmethod
+    def _check_name_unique(name: str, user_id: str, allow_preset_name: bool = False):
         settings = get_settings()
         try:
             presets = json.loads(settings.dataset_presets_json)
-            preset = next((p for p in presets if p["id"] == preset_id), None)
-            if not preset:
-                raise HTTPException(status_code=404, detail="Preset dataset not found")
+            if not allow_preset_name and any(p.get("name") == name for p in presets):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Dataset name '{name}' conflicts with a preset dataset"
+                )
         except json.JSONDecodeError:
-            raise HTTPException(status_code=500, detail="Invalid system configuration")
+            pass
+        if DatasetRepository.exists_by_user_and_name(user_id, name):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Dataset name '{name}' already exists"
+            )
+
+    @staticmethod
+    def create_from_preset(preset_id: str, user_id: str) -> DatasetResponse:
+        preset = next((p for p in DatasetService.list_presets() if p.get("id") == preset_id), None)
+        if not preset:
+            raise HTTPException(status_code=404, detail="Preset dataset not found")
+
+        DatasetService._check_name_unique(preset["name"], user_id, allow_preset_name=True)
 
         dataset_in = DatasetCreate(
             user_id=user_id,
@@ -48,8 +82,22 @@ class DatasetService:
             raise HTTPException(status_code=403, detail="Not authorized")
 
     @staticmethod
+    def delete_dataset(dataset_id: str, user_id: str):
+        dataset = DatasetRepository.get_by_id(dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        DatasetService._check_user_access(dataset["user_id"], user_id)
+        if DatasetRepository.count_referencing_tasks(dataset_id) > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Dataset is in use by evaluation tasks; delete those tasks first",
+            )
+        DatasetRepository.delete(dataset_id)
+
+    @staticmethod
     def create_dataset(data: DatasetCreate, user_id: str) -> DatasetResponse:
         DatasetService._check_user_access(data.user_id, user_id)
+        DatasetService._check_name_unique(data.name, user_id)
         dataset_id = DatasetRepository.create(data.model_dump())
         created = DatasetRepository.get_by_id(dataset_id)
         return DatasetResponse(**created)
@@ -68,6 +116,7 @@ class DatasetService:
         image_url_field: Optional[str] = None,
         system_prompt: Optional[str] = None,
     ) -> DatasetResponse:
+        DatasetService._check_name_unique(name, user_id)
         storage_path = DatasetService._save_uploaded_file(user_id, file)
         schema_obj: Dict[str, Any] = {}
         if schema_json_str:

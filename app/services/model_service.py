@@ -9,7 +9,8 @@ from openai import AsyncOpenAI
 from redis import asyncio as redis_asyncio
 
 from app.core.config import get_settings
-from app.schemas.model_config import ModelConfigResponse
+from app.repositories.platform_preset_repo import PlatformPresetRepository
+from app.schemas.model_config import ModelConfigInternal
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -34,7 +35,7 @@ class ModelService:
 
     @staticmethod
     async def call_model(
-        config: ModelConfigResponse,
+        config: ModelConfigInternal,
         messages: List[Dict[str, Any]],
         **kwargs,
     ) -> str:
@@ -64,7 +65,7 @@ class ModelService:
         return await ModelService._call_generic_http(config, messages, params)
 
     @staticmethod
-    def _rate_limit_key(config: ModelConfigResponse, params: Dict[str, Any]) -> str:
+    def _rate_limit_key(config: ModelConfigInternal, params: Dict[str, Any]) -> str:
         """
         生成固定窗口（1 秒）限流 Key。
         粒度：provider + 解析后的 model 名称。
@@ -98,7 +99,7 @@ class ModelService:
             return None
 
     @staticmethod
-    async def _acquire_rate_limit(config: ModelConfigResponse, params: Dict[str, Any]):
+    async def _acquire_rate_limit(config: ModelConfigInternal, params: Dict[str, Any]):
         """
         Redis 固定窗口限流实现。
 
@@ -141,7 +142,7 @@ class ModelService:
 
     @staticmethod
     async def _call_openai_compatible(
-        config: ModelConfigResponse,
+        config: ModelConfigInternal,
         messages: List[Dict[str, Any]],
         params: Dict[str, Any],
     ) -> str:
@@ -149,12 +150,11 @@ class ModelService:
         调用 OpenAI 兼容 Chat Completions API。
 
         说明：
-        - auth_secret_ref 优先按环境变量名解析，找不到则当作明文 key 使用。
+        - auth_secret_ref is an environment variable name; the real key is never stored in DB.
         - endpoint 若以 '/chat/completions' 结尾，会规范化到 '/v1'。
         - 请求模型名优先使用 params['model']，否则使用 config.name。
         """
-        api_key_ref = config.auth_secret_ref or "dummy"
-        api_key = os.getenv(api_key_ref, api_key_ref)
+        api_key = await ModelService._resolve_model_api_key(config)
         base_url = config.endpoint
 
         if base_url.endswith("/chat/completions"):
@@ -182,7 +182,7 @@ class ModelService:
 
     @staticmethod
     async def _call_huggingface(
-        config: ModelConfigResponse,
+        config: ModelConfigInternal,
         messages: List[Dict[str, str]],
         params: Dict[str, Any],
     ) -> str:
@@ -190,8 +190,8 @@ class ModelService:
         调用 HuggingFace Inference API。
         """
         headers = {}
-        if config.auth_secret_ref:
-            headers["Authorization"] = f"Bearer {config.auth_secret_ref}"
+        if config.auth_type != "none":
+            headers["Authorization"] = f"Bearer {await ModelService._resolve_model_api_key(config)}"
 
         prompt = messages[-1]["content"] if messages else ""
         payload = {"inputs": prompt, "parameters": params}
@@ -210,7 +210,7 @@ class ModelService:
 
     @staticmethod
     async def _call_generic_http(
-        config: ModelConfigResponse,
+        config: ModelConfigInternal,
         messages: List[Dict[str, str]],
         params: Dict[str, Any],
     ) -> str:
@@ -218,10 +218,10 @@ class ModelService:
         通用 HTTP POST 兜底通道（用于自定义模型网关）。
         """
         headers = {"Content-Type": "application/json"}
-        if config.auth_type == "bearer" and config.auth_secret_ref:
-            headers["Authorization"] = f"Bearer {config.auth_secret_ref}"
-        elif config.auth_type == "api_key" and config.auth_secret_ref:
-            headers["x-api-key"] = config.auth_secret_ref
+        if config.auth_type == "bearer":
+            headers["Authorization"] = f"Bearer {await ModelService._resolve_model_api_key(config)}"
+        elif config.auth_type == "api_key":
+            headers["x-api-key"] = await ModelService._resolve_model_api_key(config)
 
         payload = {"messages": messages, "params": params}
 
@@ -233,3 +233,39 @@ class ModelService:
             except Exception as e:
                 logger.error(f"Generic HTTP call failed: {str(e)}")
                 raise e
+
+    @staticmethod
+    def _resolve_secret_ref(secret_ref: Optional[str]) -> str:
+        if not secret_ref:
+            raise ValueError("Model auth_secret_ref is required")
+        value = os.getenv(secret_ref)
+        if not value:
+            raise ValueError(f"Model secret env var is not configured: {secret_ref}")
+        return value
+
+    @staticmethod
+    async def _resolve_model_api_key(config: ModelConfigInternal) -> str:
+        secret_ref = await ModelService._select_secret_ref(config)
+        return ModelService._resolve_secret_ref(secret_ref)
+
+    @staticmethod
+    async def _select_secret_ref(config: ModelConfigInternal) -> Optional[str]:
+        if not config.platform_preset_id:
+            return config.auth_secret_ref
+
+        keys = PlatformPresetRepository.list_active_model_keys(config.platform_preset_id)
+        if not keys:
+            return config.auth_secret_ref
+
+        redis_client = await ModelService._get_rate_limit_redis()
+        if redis_client is None:
+            return keys[0]["secret_ref"]
+
+        cursor_key = f"model_key_cursor:{config.platform_preset_id}"
+        try:
+            cursor = await redis_client.incr(cursor_key)
+            selected = keys[(int(cursor) - 1) % len(keys)]
+            return selected["secret_ref"]
+        except Exception as e:
+            logger.warning(f"Select model key from redis failed, fallback to first key: {e}")
+            return keys[0]["secret_ref"]
