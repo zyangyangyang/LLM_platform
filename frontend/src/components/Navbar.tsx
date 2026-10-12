@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Menu, X, LayoutDashboard, FileText, Play, Trophy, Shield, AlertTriangle, Lock, Eye, FileText as FileTextIcon, ChevronDown, KeyRound } from 'lucide-react';
+import { ShieldCheck, Menu, X, LayoutDashboard, FileText, Play, Trophy, Shield, AlertTriangle, Lock, Eye, FileText as FileTextIcon, ChevronDown, KeyRound, BarChart3 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { clearAccessToken, getAccessToken, getCurrentUser, hasAdminRole, updateCurrentUser } from '@/lib/auth';
 import {
@@ -26,7 +26,7 @@ const Navbar: React.FC = () => {
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
   // Check if we are in "App Mode" (dashboard, assessment, results) to show different nav items
-  const isAppMode = ['/dashboard', '/assessment', '/results', '/models', '/admin'].some(path => location.pathname.startsWith(path));
+  const isAppMode = ['/dashboard', '/assessment', '/results', '/models', '/admin', '/ranking', '/benchmark'].some(path => location.pathname.startsWith(path));
 
   React.useEffect(() => {
     const token = getAccessToken();
@@ -108,12 +108,8 @@ const Navbar: React.FC = () => {
   ];
 
   const rankingMenus = [
-    { name: '综合安全性', path: '/ranking?tab=overall', icon: Trophy },
-    { name: '提示词注入防御', path: '/ranking?tab=promptInjection', icon: Shield },
-    { name: '内容合规检测', path: '/ranking?tab=contentSafety', icon: AlertTriangle },
-    { name: '数据隐私保护', path: '/ranking?tab=dataPrivacy', icon: Lock },
-    { name: '偏见与公平性', path: '/ranking?tab=biasFairness', icon: Eye },
-    { name: '鲁棒性压力测试', path: '/ranking?tab=robustness', icon: FileTextIcon },
+    { name: '综合排行榜', path: '/ranking', icon: Trophy },
+    { name: 'Benchmark 库', path: '/benchmark', icon: BarChart3 },
   ];
 
   const appLinks = [
@@ -124,6 +120,8 @@ const Navbar: React.FC = () => {
     { name: '我的模型', path: '/models', icon: KeyRound },
     // 仅平台管理员可见
     ...(isAdmin ? [{ name: '管理后台', path: '/admin', icon: ShieldCheck }] : []),
+    { name: '排行榜', path: '/ranking', icon: Trophy },
+    { name: 'Benchmark', path: '/benchmark', icon: BarChart3 },
   ];
 
   return (

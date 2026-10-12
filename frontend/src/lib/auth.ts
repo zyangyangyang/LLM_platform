@@ -770,3 +770,67 @@ export async function getEvalTaskMetrics(taskId: string): Promise<EvalMetricItem
 export async function getEvalTaskProgress(taskId: string) {
   return apiGet(`/api/eval-tasks/${taskId}/progress`);
 }
+
+// ---------------------------------------------------------------------------
+// 排行榜 / Benchmark / 历史对比
+// ---------------------------------------------------------------------------
+
+export type BenchmarkScoreItem = {
+  benchmark_name: string;
+  task_type: string;
+  score: number;
+  num_runs: number;
+  last_run_at?: string | null;
+};
+
+export type LeaderboardEntry = {
+  rank: number;
+  model_name: string;
+  provider: string;
+  score: number;
+  num_runs: number;
+  last_run_at?: string | null;
+  change?: number | null;
+  benchmark_scores: BenchmarkScoreItem[];
+};
+
+export type BenchmarkSummary = {
+  name: string;
+  description?: string | null;
+  task_type: string;
+  model_count: number;
+  run_count: number;
+  best_score: number;
+  latest_score: number;
+  last_run_at?: string | null;
+  sample_count: number;
+};
+
+export type HistoryPoint = {
+  model_name: string;
+  benchmark_name: string;
+  task_type: string;
+  run_no: number;
+  score: number;
+  sample_count: number;
+  finished_at?: string | null;
+};
+
+export async function listBenchmarks(): Promise<BenchmarkSummary[]> {
+  return apiGet("/api/analytics/benchmarks");
+}
+
+export async function getLeaderboard(benchmark?: string): Promise<LeaderboardEntry[]> {
+  const q = benchmark ? `?benchmark=${encodeURIComponent(benchmark)}` : "";
+  return apiGet(`/api/analytics/leaderboard${q}`);
+}
+
+export async function getHistory(
+  params: { benchmark?: string; model?: string } = {}
+): Promise<HistoryPoint[]> {
+  const qs = new URLSearchParams();
+  if (params.benchmark) qs.set("benchmark", params.benchmark);
+  if (params.model) qs.set("model", params.model);
+  const q = qs.toString();
+  return apiGet(`/api/analytics/history${q ? `?${q}` : ""}`);
+}

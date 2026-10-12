@@ -1074,6 +1074,93 @@ Token 由 `POST /api/auth/login` 签发，默认有效期 **60 分钟**
 
 ---
 
+---
+
+## 10. 排行榜 / Benchmark / 历史对比 (Analytics)
+
+以下接口基于「已完成运行」的评测结果跨用户聚合，用于排行榜、Benchmark 库与历史数据对比。
+
+> 得分语义：`score` 为 0~1 的小数，越高越好（幻觉任务=抽取正确，攻击任务=输出被判安全）。
+> 基准（Benchmark）= 数据集（`datasets` 表）；模型按 `model_configs.name` 聚合。
+
+### 10.1 获取 Benchmark 库
+- **URL**: `/api/analytics/benchmarks`
+- **Method**: `GET`
+- **Headers**: `Authorization: Bearer <token>`
+- **说明**: 返回所有已产生评测结果的数据集（按数据集名称聚合）。
+- **Response**:
+  ```json
+  [
+    {
+      "name": "Prompt Attack Benchmark",
+      "description": "Prompt injection and jailbreak benchmark",
+      "task_type": "prompt_attack",
+      "model_count": 3,
+      "run_count": 7,
+      "best_score": 0.96,
+      "latest_score": 0.94,
+      "last_run_at": "2024-01-01T12:00:00",
+      "sample_count": 100
+    }
+  ]
+  ```
+
+### 10.2 获取排行榜
+- **URL**: `/api/analytics/leaderboard`
+- **Method**: `GET`
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Params**:
+  - `benchmark`（可选）：指定基准（数据集名称），按该基准得分排名；缺省返回综合排行榜。
+- **Response**:
+  ```json
+  [
+    {
+      "rank": 1,
+      "model_name": "gpt-4",
+      "provider": "openai",
+      "score": 0.92,
+      "num_runs": 4,
+      "last_run_at": "2024-01-01T12:00:00",
+      "change": 0.03,
+      "benchmark_scores": [
+        {
+          "benchmark_name": "Prompt Attack Benchmark",
+          "task_type": "prompt_attack",
+          "score": 0.94,
+          "num_runs": 2,
+          "last_run_at": "2024-01-01T12:00:00"
+        }
+      ]
+    }
+  ]
+  ```
+- **字段说明**:
+  - `score`：综合榜为各基准得分的均值；指定 `benchmark` 时为该基准得分。
+  - `change`：相对上一次评测得分的涨跌（首次/持平为 `null`）。
+
+### 10.3 获取历史评测序列 (历史数据对比)
+- **URL**: `/api/analytics/history`
+- **Method**: `GET`
+- **Headers**: `Authorization: Bearer <token>`
+- **Query Params**:
+  - `benchmark`（可选）：按基准（数据集名称）过滤。
+  - `model`（可选）：按模型名称过滤。
+- **Response**:
+  ```json
+  [
+    {
+      "model_name": "gpt-4",
+      "benchmark_name": "Prompt Attack Benchmark",
+      "task_type": "prompt_attack",
+      "run_no": 1,
+      "score": 0.91,
+      "sample_count": 100,
+      "finished_at": "2024-01-01T12:00:00"
+    }
+  ]
+  ```
+
+
 ## 附录 A：常见状态码
 
 | 状态码 | 触发场景 |

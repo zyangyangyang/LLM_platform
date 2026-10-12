@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createDatasetFromPreset,
   createEvalTask,
@@ -116,6 +116,7 @@ const ACCEPTED_DATASET_EXT = ['.json', '.jsonl'];
 
 const Assessment: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("attack");
   const [loading, setLoading] = useState(false);
   const [datasetOptions, setDatasetOptions] = useState<DatasetOption[]>([]);
@@ -391,6 +392,13 @@ const Assessment: React.FC = () => {
 
         setDatasetOptions(merged);
         setModelOptions(mergedModels);
+
+        // 从 Benchmark 库跳转过来时，按基准名称预选对应数据集
+        const benchmarkParam = searchParams.get('benchmark');
+        if (benchmarkParam) {
+          const matched = merged.find((d) => d.name.trim() === benchmarkParam.trim());
+          if (matched) setSelectedDataset(matched.id);
+        }
       } catch {
         setDatasetOptions([]);
         setModelOptions([]);
@@ -398,7 +406,7 @@ const Assessment: React.FC = () => {
     };
 
     loadOptions();
-  }, []);
+  }, [searchParams]);
 
   // 字段下拉的选项。已猜出的值可能不在探测到的路径里（比如文件里只有部分
   // 样本带该字段），补进去，否则 Radix 找不到匹配项会退回 placeholder，

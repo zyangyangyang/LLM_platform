@@ -8,6 +8,7 @@ import Results from "./pages/Results";
 import Ranking from "./pages/Ranking";
 import Admin from "./pages/Admin";
 import MyModels from "./pages/MyModels";
+import Benchmark from "./pages/Benchmark";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/ranking" element={<Ranking />} />
           <Route path="/models" element={<MyModels />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/benchmark" element={<Benchmark />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
