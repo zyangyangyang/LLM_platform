@@ -8,13 +8,15 @@ import {
   ArrowRight, 
   AlertTriangle,
   Zap,
-  Lock
+  Lock,
+  Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Link } from 'react-router-dom';
-import { listDatasets, listEvalTasks, listModels } from '@/lib/auth';
+import { deleteEvalTask, getCurrentUser, hasAdminRole, listDatasets, listEvalTasks, listModels } from '@/lib/auth';
 
 type EvalTask = {
   id: string;
@@ -28,6 +30,22 @@ const Dashboard: React.FC = () => {
   const [modelCount, setModelCount] = useState(0);
   const [datasetCount, setDatasetCount] = useState(0);
   const [error, setError] = useState('');
+  const [userName, setUserName] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [confirmingTaskId, setConfirmingTaskId] = useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then((user) => {
+        setUserName(user.name || user.email || '');
+        setIsAdmin(hasAdminRole(user));
+      })
+      .catch(() => {
+        setUserName('');
+        setIsAdmin(false);
+      });
+  }, []);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -56,7 +74,23 @@ const Dashboard: React.FC = () => {
     () => tasks.filter((t) => ['finished', 'completed'].includes((t.status || '').toLowerCase())).length,
     [tasks]
   );
- 
+
+  // 后端 DELETE /api/eval-tasks/{id} 不校验状态，运行中的任务也会被直接删除（Worker 随后会写失败），
+  // 所以这里由前端挡住 queued/running。
+  const handleDeleteTask = async (taskId: string) => {
+    setError('');
+    setDeletingTaskId(taskId);
+    try {
+      await deleteEvalTask(taskId);
+      setTasks((prev) => prev.filter((task) => task.id !== taskId));
+      setConfirmingTaskId(null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '删除任务失败');
+    } finally {
+      setDeletingTaskId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-sky-50 via-blue-50 to-indigo-50">
       {/* 背景装饰图案 */}
@@ -96,10 +130,26 @@ const Dashboard: React.FC = () => {
         {/* Welcome Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">欢迎回来，安全管理员</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-foreground">
+                欢迎回来{userName ? `，${userName}` : ''}
+              </h1>
+              {isAdmin ? (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  平台管理员
+                </Badge>
+              ) : null}
+            </div>
             <p className="text-muted-foreground mt-1">这里是您的AI安全态势感知中心。</p>
           </div>
           <div className="flex gap-3">
+            {isAdmin ? (
+              <Link to="/admin">
+                <Button variant="outline" className="bg-white">
+                  <ShieldCheck className="mr-2 h-4 w-4" /> 管理后台
+                </Button>
+              </Link>
+            ) : null}
             <Link to="/assessment">
                 <Button className="bg-primary hover:bg-blue-700 shadow-custom text-white">
                 <Zap className="mr-2 h-4 w-4" /> 快速评测
@@ -214,20 +264,23 @@ const Dashboard: React.FC = () => {
                <CardContent className="pt-4">
                  <div className="space-y-4">
                    {error ? <div className="text-sm text-red-600">{error}</div> : null}
-                   {tasks.slice(0, 5).map((task, i) => (
+                   {tasks.slice(0, 5).map((task, i) => {
+                     const status = (task.status || '').toLowerCase();
+                     const isActive = ['running', 'queued'].includes(status);
+                     return (
                      <div key={task.id || i} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-gray-100">
                        <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                         <div className={`w-2 h-2 rounded-full ${['running', 'queued'].includes((task.status || '').toLowerCase()) ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
+                         <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></div>
                          <div>
                            <p className="font-medium text-sm text-foreground">{task.name}</p>
                            <p className="text-xs text-muted-foreground">{task.created_at ? new Date(task.created_at).toLocaleString() : '-'}</p>
                          </div>
                        </div>
-                       <div className="flex items-center space-x-3">
+                       <div className="flex items-center space-x-2">
                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                           ['failed'].includes((task.status || '').toLowerCase())
+                           ['failed'].includes(status)
                              ? 'bg-red-100 text-red-700'
-                             : ['running', 'queued'].includes((task.status || '').toLowerCase())
+                             : isActive
                              ? 'bg-blue-50 text-blue-600'
                              : 'bg-green-100 text-green-700'
                          }`}>
@@ -236,9 +289,43 @@ const Dashboard: React.FC = () => {
                          <Link to={`/results?taskId=${encodeURIComponent(task.id)}`}>
                            <Button variant="ghost" size="sm" className="h-8 text-xs">详情</Button>
                          </Link>
+                         {isActive ? (
+                           <span className="text-xs text-muted-foreground" title="任务排队或运行中，删除会中断执行">不可删除</span>
+                         ) : confirmingTaskId === task.id ? (
+                           <>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               className="h-8 text-xs text-red-600 hover:text-red-700"
+                               disabled={deletingTaskId === task.id}
+                               onClick={() => handleDeleteTask(task.id)}
+                             >
+                               {deletingTaskId === task.id ? '删除中...' : '确认删除'}
+                             </Button>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               className="h-8 text-xs"
+                               onClick={() => setConfirmingTaskId(null)}
+                             >
+                               取消
+                             </Button>
+                           </>
+                         ) : (
+                           <Button
+                             variant="ghost"
+                             size="sm"
+                             className="h-8 px-2 text-muted-foreground hover:text-red-600"
+                             title="删除任务"
+                             onClick={() => setConfirmingTaskId(task.id)}
+                           >
+                             <Trash2 className="w-3.5 h-3.5" />
+                           </Button>
+                         )}
                        </div>
                      </div>
-                   ))}
+                     );
+                   })}
                    {tasks.length === 0 ? <div className="text-sm text-slate-500">暂无任务，请先新建评测任务。</div> : null}
                  </div>
                </CardContent>

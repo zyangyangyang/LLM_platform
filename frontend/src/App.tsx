@@ -6,6 +6,8 @@ import Dashboard from "./pages/Dashboard";
 import Assessment from "./pages/Assessment";
 import Results from "./pages/Results";
 import Ranking from "./pages/Ranking";
+import Admin from "./pages/Admin";
+import MyModels from "./pages/MyModels";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +22,8 @@ const App = () => (
           <Route path="/assessment" element={<Assessment />} />
           <Route path="/results" element={<Results />} />
           <Route path="/ranking" element={<Ranking />} />
+          <Route path="/models" element={<MyModels />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

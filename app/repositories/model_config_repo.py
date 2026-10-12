@@ -60,6 +60,34 @@ class ModelConfigRepository:
         )
         return row is not None
 
+    # 允许被更新的列。列名要直接拼进 SQL，所以必须白名单 —— 否则调用方
+    # 传进来的任意字符串都会变成 SQL 片段。
+    UPDATABLE_COLUMNS = frozenset(
+        {"name", "provider", "endpoint", "auth_type", "auth_secret_ref", "params_json"}
+    )
+
+    @staticmethod
+    def update(model_id: str, fields: Dict[str, Any]) -> bool:
+        """按字段部分更新模型配置。fields 为空时不做任何事。"""
+        if not fields:
+            return False
+
+        unknown = set(fields) - ModelConfigRepository.UPDATABLE_COLUMNS
+        if unknown:
+            raise ValueError(f"Unsupported model config fields: {sorted(unknown)}")
+
+        values = dict(fields)
+        if "params_json" in values:
+            values["params_json"] = json.dumps(values["params_json"])
+
+        assignments = ", ".join(f"{column} = %s" for column in values)
+        params = tuple(values.values()) + (model_id,)
+        count = execute(
+            f"UPDATE model_configs SET {assignments} WHERE id = %s",
+            params,
+        )
+        return count > 0
+
     @staticmethod
     def delete(model_id: str) -> bool:
         count = execute("DELETE FROM model_configs WHERE id = %s", (model_id,))

@@ -6,6 +6,7 @@ from urllib.parse import unquote
 from fastapi import HTTPException, UploadFile
 
 from app.core.config import get_settings
+from app.repositories.audit_repo import AuditRepository
 from app.repositories.dataset_repo import DatasetRepository
 from app.repositories.platform_preset_repo import PlatformPresetRepository
 from app.schemas.dataset import DatasetCreate, DatasetResponse, DatasetSampleItem, DatasetSamplesResponse
@@ -36,7 +37,24 @@ class DatasetService:
             admin_user_id,
         )
         created = PlatformPresetRepository.get_dataset_preset(preset_id)
+        # 数据集预置没有凭证，meta 只记定位信息
+        audited = created or preset_in.model_dump()
+        AuditRepository.record(
+            admin_user_id,
+            "create_platform_dataset_preset",
+            "platform_dataset_preset",
+            resource_id=preset_id,
+            meta={k: audited.get(k) for k in ("name", "source_type", "storage_uri")},
+        )
         return PlatformDatasetPresetResponse(**created)
+
+    @staticmethod
+    def list_platform_presets() -> List[PlatformDatasetPresetResponse]:
+        """列出 DB 中的平台预置数据集（区别于配置文件里的内置预置）。"""
+        return [
+            PlatformDatasetPresetResponse(**row)
+            for row in PlatformPresetRepository.list_dataset_presets()
+        ]
 
     @staticmethod
     def _check_name_unique(name: str, user_id: str, allow_preset_name: bool = False):

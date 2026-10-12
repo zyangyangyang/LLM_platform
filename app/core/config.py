@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -48,6 +49,17 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # 自带密钥（BYOK）的主密钥，Fernet 格式（urlsafe base64 的 32 字节）。
+    # 生成：python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())"
+    #
+    # 默认 None = 不启用 BYOK：用户仍只能用「环境变量名」引用运维预先配好的
+    # 密钥，行为与加这个功能之前完全一致。这样没配主密钥的部署不会因为升级
+    # 而挂掉，只是用不了自带密钥。
+    #
+    # 支持逗号分隔多个密钥：第一个用于加密，全部参与解密 —— 轮换时把新密钥
+    # 放最前面、旧密钥留在后面，正在用的密文照样解得开，无需停机。
+    secret_encryption_key: Optional[str] = None
+
     # Database
     db_host: str = "127.0.0.1"
     db_port: int = 3306
@@ -95,13 +107,20 @@ class Settings(BaseSettings):
         "\"description\":\"Entity relation extraction hallucination benchmark\","
         "\"source_type\":\"file_upload\","
         f"\"storage_uri\":\"{(PROJECT_ROOT / 'entity_relation_hallucination.json').as_posix()}\","
-        "\"schema_json\":{\"prompt_field\":\"description\"}},"
+        # label_field 决定结果页「按标注分组通过率」怎么分组。不配就会走
+        # _extract_label_text 的兜底键名，而这个数据集的 label 字段恒为「是」，
+        # 于是那张图会退化成孤零零一根柱子。真正有区分度的是 hallucination_type。
+        "\"schema_json\":{\"prompt_field\":\"description\","
+        "\"label_field\":\"hallucination_type\"}},"
         "{\"id\":\"prompt-attack-v1\","
         "\"name\":\"Prompt Attack Benchmark\","
         "\"description\":\"Prompt injection and jailbreak benchmark\","
         "\"source_type\":\"file_upload\","
         f"\"storage_uri\":\"{(PROJECT_ROOT / 'prompt_attack_dataset.json').as_posix()}\","
-        "\"schema_json\":{\"prompt_field\":\"malicious_prompt\"}},"
+        # 同上：这个数据集的 label 恒为 harmful，兜底取到它只会画出一根柱子。
+        # category 有 27 个类别（每类 80 条），才是这张图该分的组。
+        "\"schema_json\":{\"prompt_field\":\"malicious_prompt\","
+        "\"label_field\":\"category\"}},"
         "{\"id\":\"multimodal-attack-v1-100\","
         "\"name\":\"Multimodal Attack 100\","
         "\"description\":\"First 100 samples from multimodal attack dataset\","
@@ -110,6 +129,22 @@ class Settings(BaseSettings):
         "\"schema_json\":{\"prompt_field\":\"adversarial.question\"}}"
         "]"
     )
+
+    @property
+    def secret_encryption_keys(self) -> list[str]:
+        """解析出主密钥列表：第一个用于加密，全部用于解密。
+
+        跳过空串，免得 `KEY_A,,KEY_B` 这种手滑写法把 MultiFernet 弄崩。
+        """
+        raw = (self.secret_encryption_key or "").strip()
+        if not raw:
+            return []
+        return [k.strip() for k in raw.split(",") if k.strip()]
+
+    @property
+    def byok_enabled(self) -> bool:
+        """是否允许用户自带密钥。未配主密钥时为 False。"""
+        return bool(self.secret_encryption_keys)
 
     # 固定读取 app/.env，避免从不同工作目录启动时读取错配置文件
     model_config = SettingsConfigDict(

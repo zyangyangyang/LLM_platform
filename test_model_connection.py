@@ -13,8 +13,12 @@ async def test_model_connection():
     print("--- 大模型连接测试 ---")
     
     # 1. 配置您的模型信息
-    # 如果您有 OpenAI Key，可以直接替换下面字符串，或者设置环境变量 OPENAI_API_KEY
-    api_key = os.getenv("OPENAI_API_KEY", "sk-f047c83aef464c6582b3226de15889be")
+    # 密钥只从环境变量读取，不要写回文件里：本文件受 git 跟踪，
+    # 硬编码的 key 会随提交进入历史，删掉也清不干净。
+    api_key = os.getenv("DASHSCOPE_API_KEY", "")
+    if not api_key:
+        print("❌ 未设置 DASHSCOPE_API_KEY 环境变量（可写入 app/.env，启动时自动加载）")
+        return
     base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1" # 或者您的中转地址/本地vLLM地址
     model_name = "qwen-plus" 
     

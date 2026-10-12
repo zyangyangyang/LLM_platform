@@ -6,6 +6,7 @@ __pycache__/
 .env.*
 venv/
 uploads/
+logs/
 dist/
 build/
 frontend/dist/

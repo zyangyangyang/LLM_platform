@@ -35,7 +35,9 @@ CREATE TABLE model_configs (
   provider VARCHAR(50) NOT NULL,
   endpoint VARCHAR(255) NOT NULL,
   auth_type VARCHAR(20) NOT NULL,
-  auth_secret_ref VARCHAR(255),
+  -- 512 而非 255：启用自带密钥（BYOK）后这里还要能放下 Fernet 密文
+  -- （enc:v1:<token>，约 319 字符）。老库用 scripts/add_byok_encryption.py 扩列。
+  auth_secret_ref VARCHAR(512),
   params_json JSON,
   platform_preset_id VARCHAR(100),
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -60,7 +62,7 @@ CREATE TABLE platform_model_presets (
   provider VARCHAR(50) NOT NULL,
   endpoint VARCHAR(255) NOT NULL,
   auth_type VARCHAR(20) NOT NULL DEFAULT 'bearer',
-  auth_secret_ref VARCHAR(255),
+  auth_secret_ref VARCHAR(512),
   params_json JSON,
   description TEXT,
   created_by VARCHAR(36) NOT NULL,
@@ -71,7 +73,10 @@ CREATE TABLE platform_model_presets (
 CREATE TABLE platform_model_keys (
   id VARCHAR(36) NOT NULL PRIMARY KEY,
   model_preset_id VARCHAR(100) NOT NULL,
-  secret_ref VARCHAR(255) NOT NULL,
+  -- 不能再宽：下面的 uk_platform_model_key_ref 唯一索引含本列，
+  -- InnoDB DYNAMIC 行格式单条索引键上限 3072 字节，model_preset_id(100)
+  -- 已占 400 字节，本列最多 668 字符。512 是留了余量的安全值。
+  secret_ref VARCHAR(512) NOT NULL,
   label VARCHAR(100),
   status VARCHAR(20) NOT NULL DEFAULT 'active',
   weight INT NOT NULL DEFAULT 1,
@@ -150,6 +155,10 @@ CREATE TABLE eval_task_runs (
   progress_total INT NOT NULL DEFAULT 0,
   progress_done INT NOT NULL DEFAULT 0,
   error_message TEXT,
+  -- 本次运行实际使用的生成参数快照（被测模型 + 裁判），运行开始时写入一次。
+  -- model_configs.params_json 是可变的，不存快照则历史报告无法复现。
+  -- 结构见 scripts/add_gen_params_to_task_runs.py。不含任何密钥。
+  gen_params_json JSON,
   CONSTRAINT fk_eval_task_runs_task FOREIGN KEY (task_id) REFERENCES eval_tasks(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -178,7 +187,10 @@ CREATE TABLE audit_logs (
   user_id VARCHAR(36) NOT NULL,
   action VARCHAR(50) NOT NULL,
   resource_type VARCHAR(50) NOT NULL,
-  resource_id VARCHAR(36),
+  -- 必须 ≥100：平台预置的 id 是 VARCHAR(100)（管理员可自定义），
+  -- 而 STRICT_TRANS_TABLES 下超长写入会报错，审计记录会静默丢失。
+  -- 老库用 scripts/add_audit_log_resource_id.py 扩列。
+  resource_id VARCHAR(100),
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   meta_json JSON,
   CONSTRAINT fk_audit_logs_user FOREIGN KEY (user_id) REFERENCES users(id)

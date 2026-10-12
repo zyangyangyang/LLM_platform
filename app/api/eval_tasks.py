@@ -9,6 +9,7 @@ from app.schemas.task import (
     EvalSampleResultsResponse,
     EvalMetricItem,
     EvalTaskProgressResponse,
+    DimensionPreviewResponse,
 )
 from app.services.task_service import TaskService
 from app.repositories.task_repo import TaskRepository
@@ -36,6 +37,26 @@ def list_tasks(
     """
     return TaskService.list_tasks(current_user["id"])
 
+@router.get("/dimension-preview", response_model=DimensionPreviewResponse)
+def preview_dimension(
+    dataset_id: str,
+    task_type: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """
+    提交前预检「评测维度 × 数据集」
+
+    让用户点选维度时就拿到反馈，而不是填完整张表单点提交才被 400 拦下。
+    硬拦截逻辑仍在 create_task 里，这里只是提前把同一份结论说出来。
+
+    注意这条必须声明在 GET /{task_id} **之前**：FastAPI 按声明顺序匹配，
+    放在后面的话 "dimension-preview" 会被当成 task_id 吃掉。
+    """
+    return TaskService.preview_task_dimension(
+        dataset_id, task_type, current_user["id"]
+    )
+
+
 @router.get("/{task_id}", response_model=EvalTaskResponse)
 def get_task(
     task_id: str,
@@ -43,8 +64,11 @@ def get_task(
 ):
     """
     获取任务详情
+
+    结果报告要展示数据集/模型/策略名称，这里带上名称解析；
+    进度接口不用，它每秒轮询一次，只需要权限校验。
     """
-    return TaskService.get_task(task_id, current_user["id"])
+    return TaskService.get_task(task_id, current_user["id"], with_names=True)
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(

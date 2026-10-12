@@ -180,6 +180,21 @@ class TaskRepository:
         )
 
     @staticmethod
+    def update_run_gen_params(run_id: str, gen_params: Dict[str, Any]):
+        """留档本次运行实际使用的生成参数快照（被测模型 + 裁判）。
+
+        `model_configs.params_json` 是可变的，而样本结果里只存了模型的输入输出。
+        不留这份快照，模型配置一改，历史报告就再也说不清「当时用的什么参数」。
+
+        只写一次（运行开始时），不做增量更新 —— 它描述的是「整轮运行的口径」，
+        中途改写会让同一份报告对应多个口径。
+        """
+        execute(
+            "UPDATE eval_task_runs SET gen_params_json = %s WHERE id = %s",
+            (json.dumps(gen_params, ensure_ascii=False), run_id),
+        )
+
+    @staticmethod
     def mark_running_as_failed(reason: str):
         execute(
             "UPDATE eval_task_runs SET status = 'failed', finished_at = %s, error_message = %s WHERE status = 'running'",

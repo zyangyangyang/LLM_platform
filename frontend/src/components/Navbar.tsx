@@ -1,7 +1,7 @@
 import React from 'react';
-import { ShieldCheck, Menu, X, LayoutDashboard, FileText, Play, Trophy, Shield, AlertTriangle, Lock, Eye, FileText as FileTextIcon, ChevronDown } from 'lucide-react';
+import { ShieldCheck, Menu, X, LayoutDashboard, FileText, Play, Trophy, Shield, AlertTriangle, Lock, Eye, FileText as FileTextIcon, ChevronDown, KeyRound } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { clearAccessToken, getAccessToken, getCurrentUser, updateCurrentUser } from '@/lib/auth';
+import { clearAccessToken, getAccessToken, getCurrentUser, hasAdminRole, updateCurrentUser } from '@/lib/auth';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +15,7 @@ const Navbar: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = React.useState(() => Boolean(getAccessToken()));
   const [userName, setUserName] = React.useState('用户');
   const [userEmail, setUserEmail] = React.useState('');
+  const [isAdmin, setIsAdmin] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [profileName, setProfileName] = React.useState('');
   const [profileEmail, setProfileEmail] = React.useState('');
@@ -25,24 +26,26 @@ const Navbar: React.FC = () => {
   const location = useLocation();
   const isLoginPage = location.pathname === '/login';
   // Check if we are in "App Mode" (dashboard, assessment, results) to show different nav items
-  const isAppMode = ['/dashboard', '/assessment', '/results'].some(path => location.pathname.startsWith(path));
+  const isAppMode = ['/dashboard', '/assessment', '/results', '/models', '/admin'].some(path => location.pathname.startsWith(path));
 
   React.useEffect(() => {
     const token = getAccessToken();
     setIsLoggedIn(Boolean(token));
     if (!token) {
       setUserName('用户');
+      setIsAdmin(false);
       return;
     }
     getCurrentUser()
       .then((user) => {
-        const profile = user as { name?: string; email?: string };
-        setUserName(profile.name || profile.email || '用户');
-        setUserEmail(profile.email || '');
+        setUserName(user.name || user.email || '用户');
+        setUserEmail(user.email || '');
+        setIsAdmin(hasAdminRole(user));
       })
       .catch(() => {
         setUserName('用户');
         setUserEmail('');
+        setIsAdmin(false);
       });
   }, [location.pathname]);
 
@@ -117,6 +120,10 @@ const Navbar: React.FC = () => {
     { name: '控制台', path: '/dashboard', icon: LayoutDashboard },
     { name: '新建评测', path: '/assessment', icon: Play },
     { name: '评测报告', path: '/results', icon: FileText },
+    // 所有登录用户可见：接入自己的模型是普通评测用户的主流程
+    { name: '我的模型', path: '/models', icon: KeyRound },
+    // 仅平台管理员可见
+    ...(isAdmin ? [{ name: '管理后台', path: '/admin', icon: ShieldCheck }] : []),
   ];
 
   return (
