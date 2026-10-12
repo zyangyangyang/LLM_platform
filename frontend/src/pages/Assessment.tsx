@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { createDatasetFromPreset, createEvalTask, createModelFromPreset, listDatasetPresets, listDatasets, listModelPresets, listModels, runEvalTask } from '@/lib/auth';
 
 type DatasetOption = {
@@ -27,6 +27,7 @@ type ModelOption = {
 
 const Assessment: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState("attack");
   const [loading, setLoading] = useState(false);
   const [datasetOptions, setDatasetOptions] = useState<DatasetOption[]>([]);
@@ -91,6 +92,13 @@ const Assessment: React.FC = () => {
 
         setDatasetOptions(merged);
         setModelOptions(mergedModels);
+
+        // 从 Benchmark 库跳转过来时，按基准名称预选对应数据集
+        const benchmarkParam = searchParams.get('benchmark');
+        if (benchmarkParam) {
+          const matched = merged.find((d) => d.name.trim() === benchmarkParam.trim());
+          if (matched) setSelectedDataset(matched.id);
+        }
       } catch {
         setDatasetOptions([]);
         setModelOptions([]);
@@ -98,7 +106,7 @@ const Assessment: React.FC = () => {
     };
 
     loadOptions();
-  }, []);
+  }, [searchParams]);
 
   // 根据“所选数据集”推断 task_type，确保后端使用正确的 system prompt 与评分策略。
   // 说明：用户可能会“从预置创建数据集”，此时前端拉取到的会变成 source='user'，

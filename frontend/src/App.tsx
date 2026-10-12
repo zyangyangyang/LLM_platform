@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import Assessment from "./pages/Assessment";
 import Results from "./pages/Results";
 import Ranking from "./pages/Ranking";
+import Benchmark from "./pages/Benchmark";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/assessment" element={<Assessment />} />
           <Route path="/results" element={<Results />} />
           <Route path="/ranking" element={<Ranking />} />
+          <Route path="/benchmark" element={<Benchmark />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
